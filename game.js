@@ -329,12 +329,12 @@ window.addEventListener('load', function () {
                         if (gameState === 'LEVEL_CLEAR') {
                             console.log(`Enter鍵進入下一關: ${currentLevel} -> ${currentLevel + 1}`);
                             currentLevel++;
-                            init(currentLevel, false); // 不重設分數，繼續下一關
+                            init(currentLevel, false, true); // 強制開始
                         }
                         else if (gameState === 'GAME_OVER') {
                             console.log('Enter鍵重新開始遊戲');
                             currentLevel = 0;
-                            init(currentLevel, true); // 重設分數，新遊戲
+                            init(currentLevel, true, true); // 強制開始
                         }
                     } catch (error) {
                         console.error('Enter鍵事件錯誤:', error);
@@ -2546,18 +2546,23 @@ window.addEventListener('load', function () {
     }
 
     let isInitializing = false;
-    function init(levelIndex, resetScore = false) {
+    function init(levelIndex, resetScore = false, forceStart = false) {
         if (isInitializing) return;
         isInitializing = true;
 
         try {
-            console.log(`正在初始化關卡 ${levelIndex + 1}...`);
+            console.log(`正在初始化關卡 ${levelIndex + 1}... (resetScore: ${resetScore}, forceStart: ${forceStart})`);
             keys = {}; enemies = []; bullets = []; walls = []; explosions = []; bushes = []; powerUps = []; base = null;
 
-            // 如果是 resetScore (新遊戲)，進入選單，否則直接開始播放
-            if (resetScore && levelIndex === 0 && gameState !== 'PLAYING') {
+            // 如果是強制開始或是正在過關中，切換到 PLAYING
+            if (forceStart || gameState === 'LEVEL_CLEAR') {
+                gameState = 'PLAYING';
+            }
+            // 否則如果是初次載入且目前不是遊戲中，保持在 MENU
+            else if (resetScore && levelIndex === 0 && gameState !== 'PLAYING') {
                 gameState = 'MENU';
-            } else {
+            }
+            else {
                 gameState = 'PLAYING';
             }
 
@@ -2565,7 +2570,6 @@ window.addEventListener('load', function () {
 
             if (audioInitialized) {
                 stopBackgroundMusic();
-                setTimeout(() => startBackgroundMusic(), 100);
             }
 
             if (resetScore) {
@@ -3216,12 +3220,12 @@ window.addEventListener('load', function () {
             if (gameState === 'LEVEL_CLEAR') {
                 console.log(`進入下一關: ${currentLevel} -> ${currentLevel + 1}`);
                 currentLevel++;
-                init(currentLevel, false); // 不重設分數，繼續下一關
+                init(currentLevel, false, true); // 強制開始下一關
             }
             else if (gameState === 'GAME_OVER') {
                 console.log('重新開始遊戲');
                 currentLevel = 0;
-                init(currentLevel, true); // 重設分數，新遊戲
+                init(currentLevel, true, true); // 強制開始新遊戲
             }
         } catch (error) {
             console.error('點擊事件錯誤:', error);
@@ -3235,10 +3239,10 @@ window.addEventListener('load', function () {
         if (gameState === 'MENU' || gameState === 'GAME_OVER' || gameState === 'LEVEL_CLEAR') {
             if (gameState === 'LEVEL_CLEAR') {
                 currentLevel++;
-                init(currentLevel, false);
+                init(currentLevel, false, true);
             } else {
                 currentLevel = 0;
-                init(currentLevel, true);
+                init(currentLevel, true, true);
             }
         } else if (gameState === 'PAUSED') {
             gameState = 'PLAYING';
