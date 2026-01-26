@@ -3177,11 +3177,11 @@ window.addEventListener('load', function () {
         }
     });
 
-    startBtn.addEventListener('click', function () {
+    startBtn.addEventListener('click', function (e) {
+        e.target.blur(); // 移除焦點，防止空白鍵再次觸發按鈕
         if (!audioInitialized) { initAudio(); }
 
         if (gameState === 'MENU' || gameState === 'GAME_OVER' || gameState === 'LEVEL_CLEAR') {
-            // If level clear, proceed, else reset
             if (gameState === 'LEVEL_CLEAR') {
                 currentLevel++;
                 init(currentLevel, false);
@@ -3194,40 +3194,40 @@ window.addEventListener('load', function () {
             pauseBtn.textContent = '暫停遊戲';
             resumeBackgroundMusic();
         }
+    });
 
-
-        pauseBtn.addEventListener('click', function () {
-            if (!audioInitialized) {
-                initAudio(); // 確保音效已初始化
-            }
-            if (gameState === 'PLAYING') {
-                gameState = 'PAUSED';
-                pauseBtn.textContent = '繼續遊戲';
-                pauseBackgroundMusic(); // 暫停背景音樂
-            }
-            else if (gameState === 'PAUSED') {
-                gameState = 'PLAYING';
-                pauseBtn.textContent = '暫停遊戲';
-                resumeBackgroundMusic(); // 恢復背景音樂
-            }
-        });
-
-        endBtn.addEventListener('click', function () {
-            gameState = 'GAME_OVER';
-            pauseBtn.textContent = '暫停遊戲';
-            stopBackgroundMusic(); // 停止背景音樂
-        });
-
-        new InputHandler();
-
-        // 嘗試自動初始化音效（某些瀏覽器需要使用者互動）
-        try {
-            initAudio();
-        } catch (error) {
-            console.log('等待使用者互動來啟動音效');
+    pauseBtn.addEventListener('click', function (e) {
+        e.target.blur();
+        if (!audioInitialized) { initAudio(); }
+        if (gameState === 'PLAYING') {
+            gameState = 'PAUSED';
+            pauseBtn.textContent = '繼續遊戲';
+            pauseBackgroundMusic();
         }
+        else if (gameState === 'PAUSED') {
+            gameState = 'PLAYING';
+            pauseBtn.textContent = '暫停遊戲';
+            resumeBackgroundMusic();
+        }
+    });
 
-        console.log('Game Script Loaded and Initialized');
-        init(currentLevel, true);
-        gameLoop();
-    });});
+    endBtn.addEventListener('click', function (e) {
+        e.target.blur();
+        gameState = 'GAME_OVER';
+        pauseBtn.textContent = '暫停遊戲';
+        stopBackgroundMusic();
+    });
+
+    new InputHandler();
+
+    // 嘗試自動初始化音效
+    try {
+        initAudio();
+    } catch (error) {
+        console.log('等待使用者互動來啟動音效');
+    }
+
+    console.log('Game Script Loaded and Initialized');
+    init(currentLevel, true);
+    requestAnimationFrame(gameLoop);
+});
