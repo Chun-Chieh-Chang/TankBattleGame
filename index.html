@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>坦克大戰 (Tank Battle)</title>
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <h1>坦克大戰</h1>
     <p>操作: 方向鍵 (↑↓←→) 移動, 空白鍵 (Space) 射擊, I鍵 切換AI狀態, Enter鍵 進入下一關/重新開始</p>
@@ -16,6 +18,22 @@
         <button id="pauseBtn">暫停遊戲</button>
         <button id="endBtn">結束遊戲</button>
     </div>
+
+    <!-- Mobile Controls -->
+    <div id="touch-controls">
+        <div id="dpad">
+            <button id="btn-up" class="dpad-btn">▲</button>
+            <div class="dpad-middle">
+                <button id="btn-left" class="dpad-btn">◀</button>
+                <button id="btn-right" class="dpad-btn">▶</button>
+            </div>
+            <button id="btn-down" class="dpad-btn">▼</button>
+        </div>
+        <div id="action-buttons">
+            <button id="btn-shoot" class="action-btn">⦿</button>
+        </div>
+    </div>
     <script src="game.js"></script>
 </body>
+
 </html>

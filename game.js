@@ -253,6 +253,31 @@ window.addEventListener('load', function () {
                 }
             });
             window.addEventListener('keyup', (e) => keys[e.code] = false);
+
+            // Touch Controls Support
+            this.setupTouchControls();
+        }
+
+        setupTouchControls() {
+            const bindTouch = (id, code) => {
+                const btn = document.getElementById(id);
+                if (!btn) return;
+
+                const press = (e) => { e.preventDefault(); keys[code] = true; };
+                const release = (e) => { e.preventDefault(); keys[code] = false; };
+
+                btn.addEventListener('touchstart', press, { passive: false });
+                btn.addEventListener('touchend', release, { passive: false });
+                btn.addEventListener('mousedown', press);
+                btn.addEventListener('mouseup', release);
+                btn.addEventListener('mouseleave', release);
+            };
+
+            bindTouch('btn-up', 'ArrowUp');
+            bindTouch('btn-down', 'ArrowDown');
+            bindTouch('btn-left', 'ArrowLeft');
+            bindTouch('btn-right', 'ArrowRight');
+            bindTouch('btn-shoot', 'Space');
         }
     }
 

@@ -10,7 +10,8 @@ body {
     color: #fff;
 }
 
-h1, p {
+h1,
+p {
     color: #fafafa;
     text-shadow: 2px 2px 4px #000;
     margin: 5px 0;
@@ -32,12 +33,12 @@ p {
 canvas {
     background-color: #000;
     border: 3px solid #555;
-    box-shadow: 0 0 25px rgba(0,0,0,0.6);
+    box-shadow: 0 0 25px rgba(0, 0, 0, 0.6);
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
     /* Ensure crisp rendering for pixel logic, though we draw vectors */
-    image-rendering: -webkit-optimize-contrast; 
+    image-rendering: -webkit-optimize-contrast;
 }
 
 .controls {
@@ -59,4 +60,80 @@ button {
 button:hover {
     background-color: #777;
     border-color: #aaa;
+}
+
+/* Mobile Controls */
+#touch-controls {
+    display: none;
+    /* Hidden by default on desktop */
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+    justify-content: space-between;
+    align-items: flex-end;
+    pointer-events: none;
+    /* Let clicks pass through empty space */
+    z-index: 1000;
+}
+
+@media (max-width: 1024px),
+(pointer: coarse) {
+    #touch-controls {
+        display: flex;
+    }
+}
+
+.dpad-btn,
+.action-btn {
+    pointer-events: auto;
+    background: rgba(255, 255, 255, 0.2);
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    color: rgba(255, 255, 255, 0.8);
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    font-size: 24px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    user-select: none;
+    touch-action: manipulation;
+    margin: 5px;
+    backdrop-filter: blur(4px);
+}
+
+.dpad-btn:active,
+.action-btn:active {
+    background: rgba(255, 255, 255, 0.5);
+}
+
+#dpad {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.dpad-middle {
+    display: flex;
+    margin: -10px 0;
+    /* Tighten the cross layout */
+}
+
+#action-buttons {
+    margin-bottom: 60px;
+    /* Align slightly with D-pad center */
+    margin-right: 20px;
+}
+
+#btn-shoot {
+    width: 80px;
+    height: 80px;
+    background: rgba(255, 68, 68, 0.3);
+    border-color: rgba(255, 68, 68, 0.6);
+    font-size: 30px;
+}
+
+#btn-shoot:active {
+    background: rgba(255, 68, 68, 0.6);
 }
