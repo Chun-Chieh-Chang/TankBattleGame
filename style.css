@@ -23,8 +23,9 @@ p {
 
 #game-container {
     position: relative;
-    width: 95vw;
-    height: 75vh;
+    width: 98vw;
+    height: 85vh;
+    /* Maximize height while leaving room for controls */
     display: flex;
     justify-content: center;
     align-items: center;
