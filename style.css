@@ -1,0 +1,62 @@
+body {
+    background-color: #1a1a1a;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    font-family: 'Helvetica Neue', sans-serif, "Microsoft JhengHei", "微軟正黑體";
+    color: #fff;
+}
+
+h1, p {
+    color: #fafafa;
+    text-shadow: 2px 2px 4px #000;
+    margin: 5px 0;
+}
+
+p {
+    font-size: 1em;
+}
+
+#game-container {
+    position: relative;
+    width: 95vw;
+    height: 75vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+canvas {
+    background-color: #000;
+    border: 3px solid #555;
+    box-shadow: 0 0 25px rgba(0,0,0,0.6);
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    /* Ensure crisp rendering for pixel logic, though we draw vectors */
+    image-rendering: -webkit-optimize-contrast; 
+}
+
+.controls {
+    margin-top: 15px;
+}
+
+button {
+    background-color: #555;
+    color: #fafafa;
+    border: 2px solid #888;
+    padding: 10px 20px;
+    font-size: 1em;
+    font-family: inherit;
+    cursor: pointer;
+    margin: 0 10px;
+    transition: background-color 0.3s, border-color 0.3s;
+}
+
+button:hover {
+    background-color: #777;
+    border-color: #aaa;
+}
