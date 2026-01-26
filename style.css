@@ -12,20 +12,21 @@ body {
 }
 
 h1 {
-    font-size: 2.2rem;
-    margin: 15px 0 5px 0;
+    font-size: 6vmin;
+    margin: 2vmin 0 1vmin 0;
     text-transform: uppercase;
-    letter-spacing: 2px;
-    background: linear-gradient(to bottom, #fff, #aaa);
+    letter-spacing: 0.3vmin;
+    background: linear-gradient(to bottom, #fff, #999);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
+    font-weight: 900;
 }
 
 p {
-    font-size: 1.1rem;
+    font-size: 2vmin;
     color: #888;
-    margin: 0 0 15px 0;
+    margin: 0 0 2vmin 0;
 }
 
 #game-container {
@@ -41,13 +42,10 @@ p {
 
 canvas {
     background-color: #000;
-    border: 4px solid #444;
-    box-shadow: 0 0 60px rgba(0, 0, 0, 0.9);
-    width: 90vmin;
-    height: 67.5vmin;
-    /* Maintain 4:3 approximately */
-    max-width: 1200px;
-    max-height: 900px;
+    border: 0.5vmin solid #444;
+    box-shadow: 0 0 8vmin rgba(0, 0, 0, 1);
+    width: 95vmin;
+    height: 71.25vmin;
     object-fit: contain;
     image-rendering: pixelated;
     image-rendering: -moz-crisp-edges;
@@ -62,14 +60,14 @@ canvas {
 button {
     background-color: #333;
     color: #eee;
-    border: 1px solid #555;
-    padding: 6px 15px;
-    font-size: 0.9rem;
+    border: 0.2vmin solid #555;
+    padding: 1vmin 3vmin;
+    font-size: 2vmin;
     font-family: inherit;
     cursor: pointer;
-    margin: 0 5px;
+    margin: 0 1vmin;
     transition: all 0.2s ease;
-    border-radius: 4px;
+    border-radius: 0.5vmin;
 }
 
 button:hover {

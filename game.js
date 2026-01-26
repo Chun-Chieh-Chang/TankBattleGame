@@ -305,7 +305,8 @@ window.addEventListener('load', function () {
     let playerScore = 0;
     let highScore = parseInt(localStorage.getItem('tankGameHighScore')) || 0;
     let showAIStats = false; // AI狀態面板顯示開關
-    let gameFrame = 0; // 遊戲幀數計數器，用於周期性檢查
+    let gameFrame = 0;
+    let collisionGrid = []; // 碰撞網格快取，用於優化AI尋路性能
 
     class InputHandler {
         constructor() {
@@ -1600,7 +1601,7 @@ window.addEventListener('load', function () {
         // A*算法實現
         aStar(start, goal) {
             const openSet = [start];
-            const closedSet = [];
+            const closedSet = new Set();
             const gScore = {};
             const fScore = {};
             const cameFrom = {};
@@ -1611,8 +1612,8 @@ window.addEventListener('load', function () {
             fScore[key(start)] = this.heuristic(start, goal);
 
             while (openSet.length > 0) {
-                // 尋找fScore最低的節點
-                openSet.sort((a, b) => fScore[key(a)] - fScore[key(b)]);
+                // 尋找fScore最低的節點，增加安全性檢查
+                openSet.sort((a, b) => (fScore[key(a)] || Infinity) - (fScore[key(b)] || Infinity));
                 const current = openSet.shift();
 
                 if (current.x === goal.x && current.y === goal.y) {
@@ -1628,7 +1629,7 @@ window.addEventListener('load', function () {
                     return path;
                 }
 
-                closedSet.push(current);
+                closedSet.add(key(current));
 
                 // 檢查鄰居
                 const neighbors = [
@@ -1640,7 +1641,7 @@ window.addEventListener('load', function () {
 
                 for (const neighbor of neighbors) {
                     if (this.isGridPositionBlocked(neighbor.x, neighbor.y) ||
-                        closedSet.some(node => node.x === neighbor.x && node.y === neighbor.y)) {
+                        closedSet.has(key(neighbor))) {
                         continue;
                     }
 
@@ -1657,8 +1658,8 @@ window.addEventListener('load', function () {
                     fScore[key(neighbor)] = gScore[key(neighbor)] + this.heuristic(neighbor, goal);
                 }
 
-                // 限制搜索深度以避免性能問題
-                if (closedSet.length > 50) break;
+                // 限制搜索深度以避免極端情況下的卡頓
+                if (closedSet.size > 150) break;
             }
 
             return null; // 沒有找到路徑
@@ -1671,22 +1672,48 @@ window.addEventListener('load', function () {
 
         // 檢查網格位置是否被阻擋
         isGridPositionBlocked(gridX, gridY) {
-            const x = gridX * TILE_SIZE;
-            const y = gridY * TILE_SIZE;
-
             // 檢查邊界
-            if (x < 0 || y < 0 || x >= canvas.width - TILE_SIZE || y >= canvas.height - TILE_SIZE) {
+            if (gridX < 0 || gridY < 0 || gridX >= MAP_WIDTH_TILES || gridY >= MAP_HEIGHT_TILES) {
                 return true;
             }
 
-            // 檢查牆壁
-            for (const wall of walls) {
-                if (x === wall.x && y === wall.y) {
-                    return true;
-                }
+            // 使用快取的網格直接查詢，大幅提升 A* 性能 (從 O(walls) 降到 O(1))
+            if (collisionGrid[gridY] && collisionGrid[gridY][gridX]) {
+                return true;
+            }
+
+            // 基地碰撞 (雖然基地不常移動，但通常固定在網格上)
+            if (base && !base.destroyed) {
+                const bGridX = Math.floor(base.x / TILE_SIZE);
+                const bGridY = Math.floor(base.y / TILE_SIZE);
+                // 基地可能佔據多個或特定的格點，這裡做簡單近似
+                if (gridX === bGridX && gridY === bGridY) return true;
             }
 
             return false;
+        }
+
+        // 同步碰撞網格，用於優化尋路
+        static syncCollisionGrid() {
+            collisionGrid = Array(MAP_HEIGHT_TILES).fill().map(() => Array(MAP_WIDTH_TILES).fill(false));
+
+            // 標記牆壁
+            walls.forEach(w => {
+                const r = Math.round(w.y / TILE_SIZE);
+                const c = Math.round(w.x / TILE_SIZE);
+                if (r >= 0 && r < MAP_HEIGHT_TILES && c >= 0 && c < MAP_WIDTH_TILES) {
+                    collisionGrid[r][c] = true;
+                }
+            });
+
+            // 標記基地
+            if (base && !base.destroyed) {
+                const r = Math.round(base.y / TILE_SIZE);
+                const c = Math.round(base.x / TILE_SIZE);
+                if (r >= 0 && r < MAP_HEIGHT_TILES && c >= 0 && c < MAP_WIDTH_TILES) {
+                    collisionGrid[r][c] = true;
+                }
+            }
         }
 
         // 壁面跟隨算法
@@ -2552,6 +2579,11 @@ window.addEventListener('load', function () {
                 layout = levelLayouts[0]; // 後援方案
             }
 
+            initTanksAndWalls(layout);
+
+            // 初始化後構建一次導航網格
+            Enemy.syncCollisionGrid();
+
             playerSpawnPos = { x: canvas.width / 2 - TILE_SIZE * 4, y: canvas.height - TILE_SIZE };
             player = new Player(playerSpawnPos.x, playerSpawnPos.y);
 
@@ -2749,6 +2781,7 @@ window.addEventListener('load', function () {
                     if (checkCollision(bullet, wall)) {
                         if (wall.type === 'brick' || (wall.type === 'steel' && bullet.damage >= 2)) { // Future: heavy bullets
                             walls.splice(j, 1);
+                            Enemy.syncCollisionGrid(); // 更新尋路網格
                             if (bullet.owner instanceof Player) addScore(POINTS.BRICK_DESTROY);
                             playSound('EXPLOSION');
                         } else if (wall.type === 'steel') {
