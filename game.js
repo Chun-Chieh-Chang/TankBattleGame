@@ -76,7 +76,9 @@ window.addEventListener('load', function () {
         RAPID_FIRE: { color: '#ff4444', symbol: 'R', duration: 600, points: 200 }, // 10秒快速射擊
         ARMOR: { color: '#4444ff', symbol: 'A', duration: 900, points: 300 }, // 15秒護甲
         EXTRA_LIFE: { color: '#44ff44', symbol: 'L', duration: 0, points: 500 }, // 額外生命
-        INVINCIBLE: { color: '#ffff44', symbol: 'S', duration: 300, points: 1000 } // 5秒無敵星星
+        INVINCIBLE: { color: '#ffff44', symbol: 'S', duration: 300, points: 1000 }, // 5秒無敵星星
+        SHOTGUN: { color: '#ff00ff', symbol: 'W', duration: 600, points: 400 }, // 散彈槍
+        LASER: { color: '#00ffff', symbol: 'Z', duration: 400, points: 500 } // 雷射
     };
     const POWERUP_SPAWN_CHANCE = 0.15; // 15%機率生成道具
     const POWERUP_SIZE = TILE_SIZE * 0.8;
@@ -205,6 +207,91 @@ window.addEventListener('load', function () {
             [1, 0, 2, 0, 5, 0, 2, 0, 5, 0, 0, 5, 0, 0, 0, 5, 0, 2, 0, 1], // 開放核心
             [1, 0, 2, 0, 5, 0, 2, 0, 5, 0, 0, 5, 0, 0, 0, 5, 0, 2, 0, 1], // 開放核心
             [1, 0, 2, 0, 5, 0, 2, 0, 5, 5, 0, 5, 0, 0, 0, 5, 0, 2, 0, 1], // 開放核心
+            [1, 1, 1, 0, 1, 1, 1, 0, 0, 3, 3, 3, 3, 0, 1, 1, 1, 0, 1, 1, 1],
+            [2, 2, 1, 0, 0, 0, 0, 3, 1, 1, 1, 1, 3, 0, 0, 0, 0, 1, 2, 2],
+            [0, 0, 0, 0, 0, 0, 0, 3, 1, 4, 1, 3, 3, 0, 0, 0, 0, 0, 0, 0],
+        ],
+        [ /* Level 6 - 叢林伏擊 (更多草叢) */
+            [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
+            [5, 0, 0, 0, 5, 0, 0, 0, 5, 0, 0, 0, 5, 0, 0, 0, 5, 0, 0, 5],
+            [5, 0, 1, 1, 5, 1, 1, 1, 5, 1, 1, 1, 5, 1, 1, 1, 5, 1, 0, 5],
+            [5, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 5],
+            [5, 0, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 1, 0, 5],
+            [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
+            [5, 5, 5, 1, 1, 1, 5, 5, 5, 1, 1, 1, 5, 5, 5, 1, 1, 1, 5, 5],
+            [0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2, 0, 0, 0],
+            [5, 5, 5, 1, 1, 1, 5, 5, 5, 1, 1, 1, 5, 5, 5, 1, 1, 1, 5, 5],
+            [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
+            [5, 0, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 1, 0, 5],
+            [5, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 5],
+            [5, 1, 1, 5, 1, 1, 1, 0, 0, 3, 3, 3, 3, 0, 1, 1, 1, 5, 1, 5],
+            [5, 2, 1, 5, 0, 0, 0, 3, 1, 1, 1, 1, 3, 0, 0, 0, 0, 5, 2, 5],
+            [5, 0, 0, 0, 0, 0, 0, 3, 1, 4, 1, 3, 3, 0, 0, 0, 0, 0, 0, 5],
+        ],
+        [ /* Level 7 - 死亡迴廊 (狹窄通道) */
+            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            [2, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2],
+            [2, 0, 2, 2, 2, 0, 2, 0, 2, 2, 2, 2, 0, 2, 0, 2, 2, 2, 0, 2],
+            [2, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 2],
+            [2, 0, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 0, 2],
+            [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+            [2, 2, 2, 2, 2, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 2, 2, 2, 2, 2],
+            [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+            [2, 0, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 0, 2],
+            [2, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 2],
+            [2, 0, 2, 2, 2, 0, 2, 0, 2, 2, 2, 2, 0, 2, 0, 2, 2, 2, 0, 2],
+            [2, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2],
+            [2, 1, 1, 0, 1, 1, 1, 0, 0, 3, 3, 3, 3, 0, 1, 1, 1, 0, 1, 2],
+            [2, 2, 1, 0, 0, 0, 0, 3, 1, 1, 1, 1, 3, 0, 0, 0, 0, 1, 2, 2],
+            [2, 0, 0, 0, 0, 0, 0, 3, 1, 4, 1, 3, 3, 0, 0, 0, 0, 0, 0, 2],
+        ],
+        [ /* Level 8 - 破碎島嶼 (水域概念 - 用鋼牆模擬不可通過但可射擊 - 暫用鋼牆) */
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 1, 1, 1, 0],
+            [0, 1, 5, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 1, 5, 1, 0],
+            [0, 1, 1, 1, 0, 0, 2, 0, 1, 1, 1, 1, 0, 2, 0, 0, 1, 1, 1, 0],
+            [0, 0, 0, 0, 0, 0, 2, 0, 1, 5, 5, 1, 0, 2, 0, 0, 0, 0, 0, 0],
+            [0, 2, 2, 2, 0, 0, 0, 0, 1, 5, 5, 1, 0, 0, 0, 0, 2, 2, 2, 0],
+            [0, 2, 0, 2, 0, 0, 2, 0, 1, 1, 1, 1, 0, 2, 0, 0, 2, 0, 2, 0],
+            [0, 2, 0, 2, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 2, 0, 2, 0],
+            [0, 2, 0, 2, 0, 0, 2, 2, 2, 0, 0, 2, 2, 2, 0, 0, 2, 0, 2, 0],
+            [0, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 0],
+            [0, 0, 0, 0, 0, 0, 2, 0, 1, 1, 1, 1, 0, 2, 0, 0, 0, 0, 0, 0],
+            [0, 1, 1, 1, 0, 0, 2, 0, 1, 0, 0, 1, 0, 2, 0, 0, 1, 1, 1, 0],
+            [1, 1, 1, 0, 1, 1, 1, 0, 0, 3, 3, 3, 3, 0, 1, 1, 1, 0, 1, 1, 1],
+            [2, 2, 1, 0, 0, 0, 0, 3, 1, 1, 1, 1, 3, 0, 0, 0, 0, 1, 2, 2],
+            [0, 0, 0, 0, 0, 0, 0, 3, 1, 4, 1, 3, 3, 0, 0, 0, 0, 0, 0, 0],
+        ],
+        [ /* Level 9 - 棋盤戰場 (密集障礙) */
+            [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+            [0, 2, 0, 2, 0, 2, 0, 2, 0, 0, 0, 0, 2, 0, 2, 0, 2, 0, 2, 0],
+            [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+            [0, 2, 0, 2, 0, 2, 0, 2, 0, 0, 0, 0, 2, 0, 2, 0, 2, 0, 2, 0],
+            [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [1, 2, 1, 2, 1, 2, 1, 2, 0, 0, 0, 0, 2, 1, 2, 1, 2, 1, 2, 1],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+            [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+            [0, 2, 0, 2, 0, 2, 0, 2, 0, 0, 0, 0, 2, 0, 2, 0, 2, 0, 2, 0],
+            [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
+            [0, 2, 0, 2, 0, 2, 0, 2, 0, 0, 0, 0, 2, 0, 2, 0, 2, 0, 2, 0],
+            [1, 1, 1, 0, 1, 1, 1, 0, 0, 3, 3, 3, 3, 0, 1, 1, 1, 0, 1, 1, 1],
+            [2, 2, 1, 0, 0, 0, 0, 3, 1, 1, 1, 1, 3, 0, 0, 0, 0, 1, 2, 2],
+            [0, 0, 0, 0, 0, 0, 0, 3, 1, 4, 1, 3, 3, 0, 0, 0, 0, 0, 0, 0],
+        ],
+        [ /* Level 10 - 最終防線 (堡壘) */
+            [2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2],
+            [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+            [2, 0, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 0, 2],
+            [2, 0, 2, 1, 1, 1, 1, 1, 2, 0, 0, 2, 1, 1, 1, 1, 1, 2, 0, 2],
+            [2, 0, 2, 1, 5, 5, 5, 1, 2, 0, 0, 2, 1, 5, 5, 5, 1, 2, 0, 2],
+            [2, 0, 2, 1, 5, 0, 5, 1, 2, 0, 0, 2, 1, 5, 0, 5, 1, 2, 0, 2],
+            [2, 0, 2, 1, 5, 5, 5, 1, 2, 0, 0, 2, 1, 5, 5, 5, 1, 2, 0, 2],
+            [2, 0, 2, 1, 1, 1, 1, 1, 2, 0, 0, 2, 1, 1, 1, 1, 1, 2, 0, 2],
+            [2, 0, 2, 2, 2, 0, 2, 2, 2, 0, 0, 2, 2, 2, 0, 2, 2, 2, 0, 2],
+            [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
+            [2, 2, 2, 2, 2, 0, 2, 2, 2, 0, 0, 2, 2, 2, 0, 2, 2, 2, 2, 2],
+            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             [1, 1, 1, 0, 1, 1, 1, 0, 0, 3, 3, 3, 3, 0, 1, 1, 1, 0, 1, 1, 1],
             [2, 2, 1, 0, 0, 0, 0, 3, 1, 1, 1, 1, 3, 0, 0, 0, 0, 1, 2, 2],
             [0, 0, 0, 0, 0, 0, 0, 3, 1, 4, 1, 3, 3, 0, 0, 0, 0, 0, 0, 0],
@@ -635,21 +722,29 @@ window.addEventListener('load', function () {
 
             if (this.shootCooldown <= 0) {
                 let bulletX, bulletY, center_x = this.x + this.width / 2, center_y = this.y + this.height / 2;
-                switch (this.direction) {
-                    case 'up': bulletX = center_x - BULLET_SIZE / 2; bulletY = this.y - BULLET_SIZE; break;
-                    case 'down': bulletX = center_x - BULLET_SIZE / 2; bulletY = this.y + this.height; break;
-                    case 'left': bulletX = this.x - BULLET_SIZE; bulletY = center_y - BULLET_SIZE / 2; break;
-                    case 'right': bulletX = this.x + this.width; bulletY = center_y - BULLET_SIZE / 2; break;
-                }
-                bullets.push(new Bullet(bulletX, bulletY, this.direction, this));
+                // Normal Shoot Logic moved to separate execution for overrides
+                this.executeShoot();
                 this.shootCooldown = cooldownTime;
-
-                // 槍口火光效果
-                createParticles(bulletX + BULLET_SIZE / 2, bulletY + BULLET_SIZE / 2, 3, 'spark');
 
                 // 播放射擊音效
                 playSound('SHOOT');
             }
+        }
+
+        executeShoot() {
+            let bulletX, bulletY;
+            const center_x = this.x + this.width / 2;
+            const center_y = this.y + this.height / 2;
+
+            switch (this.direction) {
+                case 'up': bulletX = center_x - BULLET_SIZE / 2; bulletY = this.y - BULLET_SIZE; break;
+                case 'down': bulletX = center_x - BULLET_SIZE / 2; bulletY = this.y + this.height; break;
+                case 'left': bulletX = this.x - BULLET_SIZE; bulletY = center_y - BULLET_SIZE / 2; break;
+                case 'right': bulletX = this.x + this.width; bulletY = center_y - BULLET_SIZE / 2; break;
+            }
+            bullets.push(new Bullet(bulletX, bulletY, this.direction, this));
+            // 槍口火光效果
+            createParticles(bulletX + BULLET_SIZE / 2, bulletY + BULLET_SIZE / 2, 3, 'spark');
         }
         update(timeScale = 1) { if (this.shootCooldown > 0) this.shootCooldown -= 1 * timeScale; }
     }
@@ -666,6 +761,8 @@ window.addEventListener('load', function () {
             this.armorTimer = 0;
             this.starInvincible = false;
             this.starInvincibleTimer = 0;
+            this.weapon = 'normal'; // 'normal', 'shotgun', 'laser'
+            this.weaponTimer = 0;
         }
         update(timeScale = 1) {
             super.update(timeScale);
@@ -741,6 +838,48 @@ window.addEventListener('load', function () {
             }
 
             if (keys['Space']) this.shoot();
+        }
+
+        executeShoot() {
+            if (this.weapon === 'shotgun') {
+                const spread = ['up', 'down'].includes(this.direction) ? ['left', 'right'] : ['up', 'down'];
+                // Main bullet
+                super.executeShoot();
+                // Flanking bullets (simplified visual spread not actual arc)
+                // Actually, shotgun should shoot 3 bullets in slightly different angles. 
+                // Since our grid is strict, let's shoot 3 parallel bullets or 1 fast one.
+                // Let's do 3-way spread if space permits.
+                const center_x = this.x + this.width / 2;
+                const center_y = this.y + this.height / 2;
+                let b1x, b1y, b2x, b2y;
+                let perpX = 0, perpY = 0;
+
+                if (this.direction === 'up' || this.direction === 'down') { perpX = 15; }
+                else { perpY = 15; }
+
+                // Hacky way to add spread bullets: manually add 2 more
+                // We reuse base calculation from super but offset origin? No, we need separate bullets.
+                // Let's just create 2 more bullets with slight offset.
+                let bulletX, bulletY;
+                switch (this.direction) {
+                    case 'up': bulletX = center_x - BULLET_SIZE / 2; bulletY = this.y - BULLET_SIZE; break;
+                    case 'down': bulletX = center_x - BULLET_SIZE / 2; bulletY = this.y + this.height; break;
+                    case 'left': bulletX = this.x - BULLET_SIZE; bulletY = center_y - BULLET_SIZE / 2; break;
+                    case 'right': bulletX = this.x + this.width; bulletY = center_y - BULLET_SIZE / 2; break;
+                }
+
+                bullets.push(new Bullet(bulletX + perpX, bulletY + perpY, this.direction, this));
+                bullets.push(new Bullet(bulletX - perpX, bulletY - perpY, this.direction, this));
+
+            } else if (this.weapon === 'laser') {
+                // Laser is fast and pierces? Or just very fast?
+                // Let's make it fast.
+                super.executeShoot();
+                // Laser logic handled in Bullet class or just speed?
+                // For now, normal shoot but we could flag bullet as laser to pierce walls later.
+            } else {
+                super.executeShoot();
+            }
         }
         respawn() {
             this.x = playerSpawnPos.x;
