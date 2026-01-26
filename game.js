@@ -1,6 +1,7 @@
 window.addEventListener('load', function () {
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
+    const startBtn = document.getElementById('startBtn');
     const pauseBtn = document.getElementById('pauseBtn');
     const endBtn = document.getElementById('endBtn');
 
@@ -2976,6 +2977,25 @@ window.addEventListener('load', function () {
             }
         } catch (error) {
             console.error('點擊事件錯誤:', error);
+        }
+    });
+
+    startBtn.addEventListener('click', function () {
+        if (!audioInitialized) { initAudio(); }
+
+        if (gameState === 'MENU' || gameState === 'GAME_OVER' || gameState === 'LEVEL_CLEAR') {
+            // If level clear, proceed, else reset
+            if (gameState === 'LEVEL_CLEAR') {
+                currentLevel++;
+                init(currentLevel, false);
+            } else {
+                currentLevel = 0;
+                init(currentLevel, true);
+            }
+        } else if (gameState === 'PAUSED') {
+            gameState = 'PLAYING';
+            pauseBtn.textContent = '暫停遊戲';
+            resumeBackgroundMusic();
         }
     });
 
