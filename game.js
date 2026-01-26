@@ -2553,7 +2553,14 @@ window.addEventListener('load', function () {
         try {
             console.log(`正在初始化關卡 ${levelIndex + 1}...`);
             keys = {}; enemies = []; bullets = []; walls = []; explosions = []; bushes = []; powerUps = []; base = null;
-            gameState = 'PLAYING';
+
+            // 如果是 resetScore (新遊戲)，進入選單，否則直接開始播放
+            if (resetScore && levelIndex === 0 && gameState !== 'PLAYING') {
+                gameState = 'MENU';
+            } else {
+                gameState = 'PLAYING';
+            }
+
             pauseBtn.textContent = '暫停遊戲';
 
             if (audioInitialized) {
@@ -2922,6 +2929,9 @@ window.addEventListener('load', function () {
     }
 
     function draw() {
+        // 確保畫布清空
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
         // 網格背景動畫
         drawAnimatedBackground(ctx);
 
@@ -2946,7 +2956,7 @@ window.addEventListener('load', function () {
         // 粒子效果 - 已移至 update()
         particles.forEach(p => p.draw(ctx));
 
-        if (screenShake.duration >= 0) ctx.restore();
+        if (screenShake.duration > 0) ctx.restore();
 
         drawUI(ctx);
 
@@ -3185,8 +3195,14 @@ window.addEventListener('load', function () {
         // Calculate TimeScale (1.0 at 60FPS)
         const timeScale = safeDt / (1000 / 60);
 
-        update(timeScale);
-        draw();
+        try {
+            update(timeScale);
+            draw();
+        } catch (error) {
+            console.error('遊戲主循環出錯:', error);
+            // 嘗試在出錯時依然進入下一幀，或者停止循環
+        }
+
         requestAnimationFrame(gameLoop);
     }
 
