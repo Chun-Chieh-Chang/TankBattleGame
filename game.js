@@ -1619,9 +1619,11 @@ window.addEventListener('load', function () {
                     // 重建路徑
                     const path = [current];
                     let temp = current;
-                    while (cameFrom[key(temp)]) {
+                    let safetyCount = 0;
+                    while (cameFrom[key(temp)] && safetyCount < 200) {
                         temp = cameFrom[key(temp)];
                         path.unshift(temp);
+                        safetyCount++;
                     }
                     return path;
                 }

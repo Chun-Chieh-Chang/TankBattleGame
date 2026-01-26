@@ -3,25 +3,29 @@ body {
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
-    /* Start from top to maximize space */
     align-items: center;
     height: 100vh;
     margin: 0;
     overflow: hidden;
-    /* Prevent scrollbars */
-    font-family: 'Helvetica Neue', sans-serif, "Microsoft JhengHei", "微軟正黑體";
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif, "Microsoft JhengHei";
     color: #fff;
 }
 
 h1 {
-    font-size: 1.5rem;
-    margin: 10px 0 5px 0;
+    font-size: 2.2rem;
+    margin: 15px 0 5px 0;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    background: linear-gradient(to bottom, #fff, #aaa);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
 }
 
 p {
-    font-size: 0.85rem;
-    color: #aaa;
-    margin: 0 0 10px 0;
+    font-size: 1.1rem;
+    color: #888;
+    margin: 0 0 15px 0;
 }
 
 #game-container {
@@ -37,13 +41,13 @@ p {
 
 canvas {
     background-color: #000;
-    border: 3px solid #444;
-    box-shadow: 0 0 40px rgba(0, 0, 0, 0.8);
-    width: 80%;
-    height: 80%;
-    max-width: 1000px;
-    /* Prevent it from getting too huge on 4K screens */
-    max-height: 750px;
+    border: 4px solid #444;
+    box-shadow: 0 0 60px rgba(0, 0, 0, 0.9);
+    width: 90vmin;
+    height: 67.5vmin;
+    /* Maintain 4:3 approximately */
+    max-width: 1200px;
+    max-height: 900px;
     object-fit: contain;
     image-rendering: pixelated;
     image-rendering: -moz-crisp-edges;
