@@ -873,10 +873,17 @@ window.addEventListener('load', function () {
 
             } else if (this.weapon === 'laser') {
                 // Laser is fast and pierces? Or just very fast?
-                // Let's make it fast.
-                super.executeShoot();
-                // Laser logic handled in Bullet class or just speed?
-                // For now, normal shoot but we could flag bullet as laser to pierce walls later.
+                // Let's make it piercing.
+                bulletX = center_x - BULLET_SIZE / 2; bulletY = center_y - BULLET_SIZE / 2;
+                switch (this.direction) {
+                    case 'up': bulletY = this.y - BULLET_SIZE; break;
+                    case 'down': bulletY = this.y + this.height; break;
+                    case 'left': bulletX = this.x - BULLET_SIZE; break;
+                    case 'right': bulletX = this.x + this.width; break;
+                }
+                // Piercing bullet type
+                bullets.push(new Bullet(bulletX, bulletY, this.direction, this, 'piercing'));
+                createParticles(bulletX + BULLET_SIZE / 2, bulletY + BULLET_SIZE / 2, 3, 'energy');
             } else {
                 super.executeShoot();
             }
@@ -2609,6 +2616,15 @@ window.addEventListener('load', function () {
         let spawnAttempts = 0;
         let collisionFailures = 0;
 
+        // Level 10 Boss Spawn
+        if (levelIndex === 9) { // Level 10 (0-indexed 9)
+            // Clean area for Boss
+            const bossX = canvas.width / 2 - TILE_SIZE;
+            const bossY = TILE_SIZE * 2;
+            enemies.push(new BossTank(bossX, bossY));
+            return; // Only spawn boss? Or boss + minions? Let's spawn just Boss and some minions.
+        }
+
         while (enemies.length < enemyCount && spawnAttempts < 300) {
             // --- CORRECTED LOGIC: Rotate through spawn points on every ATTEMPT, not every SUCCESS ---
             const spawnPoint = spawnPoints[spawnAttempts % spawnPoints.length];
@@ -2673,502 +2689,509 @@ window.addEventListener('load', function () {
         for (let i = bullets.length - 1; i >= 0; i--) {
             const bullet = bullets[i];
             let bulletRemoved = false;
-            for (let j = walls.length - 1; j >= 0; j--) {
-                if (checkCollision(bullet, walls[j])) {
-                    if (walls[j].type === 'brick') {
-                        createExplosion(walls[j].x + TILE_SIZE / 2, walls[j].y + TILE_SIZE / 2, TILE_SIZE);
-                        walls.splice(j, 1);
-                        // 破壞砂牆得分
-                        if (bullet.owner instanceof Player) {
-                            addScore(POINTS.BRICK_DESTROY);
-                        }
-                        // 播放爆炸音效
-                        playSound('EXPLOSION');
-                    }
-                    bullets.splice(i, 1); bulletRemoved = true; break;
-                }
-            }
-            if (bulletRemoved) continue;
 
-            if (base && !base.destroyed && checkCollision(bullet, base)) {
+            if (bullet.x < 0 || bullet.x > canvas.width || bullet.y < 0 || bullet.y > canvas.height) {
+                bulletRemoved = true;
+            } else if (base && !base.destroyed && checkCollision(bullet, base)) {
                 base.destroyed = true; gameState = 'GAME_OVER';
                 createExplosion(base.x + TILE_SIZE / 2, base.y + TILE_SIZE / 2, TILE_SIZE * 2, 'tank');
-                bullets.splice(i, 1);
-                // 停止背景音樂並播放遊戲結束音效
+                bulletRemoved = true;
                 stopBackgroundMusic();
                 playSound('GAME_OVER');
-                continue;
-            }
-
-            if (bullet.owner instanceof Player) {
-                for (let j = enemies.length - 1; j >= 0; j--) {
-                    const enemy = enemies[j];
-                    if (checkCollision(bullet, enemy)) {
-                        createExplosion(enemy.x + TANK_SIZE / 2, enemy.y + TANK_SIZE / 2, TANK_SIZE, 'tank');
-                        enemy.takeDamage();
-                        if (enemy.health <= 0) {
-                            // 根據敵人原始血量給予不同分數
-                            const points = (enemy.maxHealth === 1) ? POINTS.ENEMY_NORMAL : POINTS.ENEMY_TOUGH;
-                            addScore(points);
-
-                            // 有機率生成道具
-                            spawnPowerUp(enemy.x, enemy.y);
-
-                            // 播放敵人毀滅音效
-                            playSound('ENEMY_DESTROY');
-
-                            enemies.splice(j, 1);
-                        } else {
-                            // 敵人受傷但未死亡
-                            playSound('EXPLOSION');
-                        }
-                        bullets.splice(i, 1); bulletRemoved = true; break;
-                    }
-                }
-            } else if (bullet.owner instanceof Enemy) {
-                if (player && checkCollision(bullet, player) && !player.invincible && !player.starInvincible) {
-                    if (player.armor) {
-                        // 護甲吸收一次攻擊
-                        player.armor = false;
-                        player.armorTimer = 0;
-                        createExplosion(player.x + TANK_SIZE / 2, player.y + TANK_SIZE / 2, TANK_SIZE / 2, 'armor');
-                        bullets.splice(i, 1); bulletRemoved = true;
-                        // 護甲被破壞音效
-                        playSound('EXPLOSION');
-                    } else {
-                        createExplosion(player.x + TANK_SIZE / 2, player.y + TANK_SIZE / 2, TANK_SIZE, 'tank');
-                        playerLives--;
-                        if (playerLives > 0) {
-                            player.respawn();
-                            // 玩家受傷音效
-                            playSound('PLAYER_HIT');
-                        } else {
-                            gameState = 'GAME_OVER';
-                            // 停止背景音樂並播放遊戲結束音效
-                            stopBackgroundMusic();
-                            playSound('GAME_OVER');
-                        }
-                        bullets.splice(i, 1); bulletRemoved = true;
-                    }
-                }
-            }
-            if (bulletRemoved) continue;
-
-            if (bullet.x < 0 || bullet.x > canvas.width || bullet.y < 0 || bullet.y > canvas.height) bullets.splice(i, 1);
-        }
-
-        // 道具收集碰撞檢測
-        for (let i = powerUps.length - 1; i >= 0; i--) {
-            const powerUp = powerUps[i];
-
-            if (player && checkCollision(player, powerUp)) {
-                // 收集道具
-                player.activatePowerUp(powerUp.type);
-                addScore(powerUp.config.points);
-                createExplosion(powerUp.x + powerUp.width / 2, powerUp.y + powerUp.height / 2, POWERUP_SIZE / 2, 'powerup');
-                powerUps.splice(i, 1);
-                // 播放道具收集音效
-                playSound('POWERUP_COLLECT');
-            } else if (powerUp.isExpired()) {
-                // 道具過期消失
-                powerUps.splice(i, 1);
-            }
-        }
-    }
-
-    function update(timeScale = 1) {
-        if (gameState !== 'PLAYING') return;
-
-        gameFrame++; // 增加幀數計數器
-
-        if (player) player.update(timeScale);
-        enemies.forEach(e => e.update(timeScale));
-        bullets.forEach(b => b.update(timeScale));
-        powerUps.forEach(p => p.update(timeScale));
-        explosions.forEach((e, index) => {
-            e.update(timeScale);
-            if (e.life <= 0) explosions.splice(index, 1);
-        });
-        particles.forEach((p, index) => {
-            p.update(timeScale);
-            if (p.life <= 0) particles.splice(index, 1);
-        });
-
-        handleCollisions(); // Collision handling is instantaneous, usually fine without timeScale unless complex physics
-
-        // 全域防嵌入檢查（每30幀執行一次 -> Use generic counter or time）
-        // Keep using gameFrame for simplicity as "periodic check"
-        if (gameFrame % 30 === 0) {
-            performGlobalEmbeddingCheck();
-        }
-
-        if (enemies.length === 0 && gameState === 'PLAYING') {
-            // 關卡完成獎勵
-            addScore(POINTS.LEVEL_COMPLETE + (currentLevel * 500));
-            gameState = 'LEVEL_CLEAR';
-            // 播放關卡完成音效
-            playMelody([523, 659, 784, 1047], 0.3); // C-E-G-C 和弦
-        }
-    }
-
-    // 全域防嵌入檢查系統
-    function performGlobalEmbeddingCheck() {
-        const allTanks = [player, ...enemies].filter(tank => tank !== null && tank !== undefined);
-
-        for (const tank of allTanks) {
-            if (tank.isEmbedded()) {
-                console.warn(`Global check: Tank at (${tank.x}, ${tank.y}) is embedded, attempting to fix...`);
-                if (!tank.unstickFromObstacles()) {
-                    console.error(`Failed to unstick tank globally, may need manual intervention`);
-                    // 為敵人坦克嘗試強制重置
-                    if (tank instanceof Enemy) {
-                        tank.forceRepositionToSafeLocation();
-                    }
-                }
-            }
-        }
-    }
-
-    function draw() {
-        // 網格背景動畫
-        drawAnimatedBackground(ctx);
-
-        // 螢幕抖動效果
-        if (screenShake.duration > 0) {
-            screenShake.x = (Math.random() - 0.5) * screenShake.intensity;
-            screenShake.y = (Math.random() - 0.5) * screenShake.intensity;
-            screenShake.duration--;
-            ctx.save();
-            ctx.translate(screenShake.x, screenShake.y);
-        }
-
-        if (base) base.draw(ctx);
-        walls.forEach(w => w.draw(ctx));
-        powerUps.forEach(p => p.draw(ctx));
-        if (player) player.draw(ctx);
-        enemies.forEach(e => e.draw(ctx));
-        explosions.forEach(e => e.draw(ctx)); // Updated in main update()
-        bushes.forEach(b => b.draw(ctx));
-        bullets.forEach(b => b.draw(ctx));
-
-        // 粒子效果 - 已移至 update()
-        particles.forEach(p => p.draw(ctx));
-
-        if (screenShake.duration >= 0) ctx.restore();
-
-        drawUI(ctx);
-
-        if (gameState === 'LEVEL_CLEAR') { drawMessageScreen('LEVEL CLEAR', 'Press Enter or Click to Start Next Level', 'white'); }
-        else if (gameState === 'GAME_OVER') { drawMessageScreen('GAME OVER', 'Press Enter or Click to Restart', 'red', 70); }
-        else if (gameState === 'PAUSED') { drawMessageScreen('PAUSED', 'Press Pause button to continue', '#00bcd4'); }
-    }
-
-    function drawAnimatedBackground(ctx) {
-        if (!VISUAL_EFFECTS.BACKGROUND_ANIMATION) {
-            ctx.fillStyle = COLORS.BACKGROUND.main;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-            return;
-        }
-
-        // 游式背景
-        const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-        gradient.addColorStop(0, COLORS.BACKGROUND.main);
-        gradient.addColorStop(1, COLORS.BACKGROUND.accent);
-        ctx.fillStyle = gradient;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        // 動畫網格
-        backgroundOffset += 0.5;
-        ctx.strokeStyle = COLORS.BACKGROUND.grid;
-        ctx.lineWidth = 1;
-
-        const gridSize = TILE_SIZE;
-        for (let x = -gridSize + (backgroundOffset % gridSize); x < canvas.width; x += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(x, 0);
-            ctx.lineTo(x, canvas.height);
-            ctx.stroke();
-        }
-
-        for (let y = -gridSize + (backgroundOffset % gridSize); y < canvas.height; y += gridSize) {
-            ctx.beginPath();
-            ctx.moveTo(0, y);
-            ctx.lineTo(canvas.width, y);
-            ctx.stroke();
-        }
-    }
-
-    function drawMessageScreen(title, subtitle, color, titleSize = 50) {
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.fillStyle = color; ctx.font = `${titleSize}px "Courier New", Courier, monospace`;
-        ctx.textAlign = 'center'; ctx.fillText(title, canvas.width / 2, canvas.height / 2 - 20);
-        if (subtitle) { ctx.font = '30px "Courier New", Courier, monospace'; ctx.fillText(subtitle, canvas.width / 2, canvas.height / 2 + 40); }
-    }
-
-    function drawUI(ctx) {
-        ctx.fillStyle = COLORS.UI.main;
-        ctx.font = '22px "Courier New", Courier, monospace';
-        ctx.textAlign = 'left';
-
-        // 生命顯示
-        drawTankBody(ctx, 15, 15, TANK_SIZE * 0.6, 'up', COLORS.PLAYER);
-        ctx.fillText('x ' + playerLives, 50, 35);
-
-        let yOffset = 125;
-
-        // 無敵狀態指示
-        if (player && player.invincible) {
-            ctx.fillStyle = COLORS.UI.accent;
-            ctx.font = '18px "Courier New", Courier, monospace';
-            const timeLeft = Math.ceil(player.invincibilityTimer / 60);
-            ctx.fillText('重生無敵: ' + timeLeft + 's', 15, yOffset);
-            yOffset += 25;
-        }
-
-        // 道具效果指示
-        if (player) {
-            ctx.font = '18px "Courier New", Courier, monospace';
-
-            if (player.rapidFire) {
-                ctx.fillStyle = COLORS.UI.danger;
-                const timeLeft = Math.ceil(player.rapidFireTimer / 60);
-                ctx.fillText('快速射擊: ' + timeLeft + 's', 15, yOffset);
-                yOffset += 25;
-            }
-
-            if (player.armor) {
-                ctx.fillStyle = COLORS.UI.accent;
-                const timeLeft = Math.ceil(player.armorTimer / 60);
-                ctx.fillText('護甲: ' + timeLeft + 's', 15, yOffset);
-                yOffset += 25;
-            }
-
-            if (player.starInvincible) {
-                ctx.fillStyle = COLORS.UI.warning;
-                const timeLeft = Math.ceil(player.starInvincibleTimer / 60);
-                ctx.fillText('無敵星星: ' + timeLeft + 's', 15, yOffset);
-                yOffset += 25;
-            }
-        }
-
-        // 分數顯示
-        ctx.fillStyle = COLORS.UI.main;
-        ctx.font = '22px "Courier New", Courier, monospace';
-        ctx.fillText('分數: ' + playerScore.toLocaleString(), 15, 65);
-
-        // 最高分顯示
-        ctx.fillStyle = COLORS.UI.warning;
-        ctx.fillText('最高: ' + highScore.toLocaleString(), 15, 95);
-
-        // 關卡顯示
-        ctx.fillStyle = COLORS.UI.main;
-        ctx.textAlign = 'right';
-        ctx.fillText('關卡 ' + (currentLevel + 1), canvas.width - 15, 35);
-
-        // 敵人剩餘數量顯示（增強版）
-        ctx.fillStyle = COLORS.UI.danger;
-        ctx.font = '20px "Courier New", Courier, monospace';
-        ctx.fillText('敵人: ' + enemies.length, canvas.width - 15, 65);
-
-        // 統計不同類型敵人數量
-        const enemyTypes = { normal: 0, tough: 0, elite: 0 };
-        enemies.forEach(enemy => {
-            if (enemy.maxHealth === 2) enemyTypes.normal++;
-            else if (enemy.maxHealth === 3) enemyTypes.tough++;
-            else if (enemy.maxHealth >= 4) enemyTypes.elite++;
-        });
-
-        // 顯示敵人類型分佈（只在有多種類型時顯示）
-        let typeCount = 0;
-        if (enemyTypes.normal > 0) typeCount++;
-        if (enemyTypes.tough > 0) typeCount++;
-        if (enemyTypes.elite > 0) typeCount++;
-
-        if (typeCount > 1) {
-            ctx.font = '14px "Courier New", Courier, monospace';
-            let yPos = 85;
-
-            if (enemyTypes.normal > 0) {
-                ctx.fillStyle = COLORS.ENEMY_NORMAL.main;
-                ctx.fillText('普通: ' + enemyTypes.normal, canvas.width - 15, yPos);
-                drawTankBody(ctx, canvas.width - 35, yPos - 12, TANK_SIZE * 0.3, 'down', COLORS.ENEMY_NORMAL);
-                yPos += 18;
-            }
-
-            if (enemyTypes.tough > 0) {
-                ctx.fillStyle = COLORS.ENEMY_TOUGH.main;
-                ctx.fillText('強化: ' + enemyTypes.tough, canvas.width - 15, yPos);
-                drawTankBody(ctx, canvas.width - 35, yPos - 12, TANK_SIZE * 0.3, 'down', COLORS.ENEMY_TOUGH);
-                yPos += 18;
-            }
-
-            if (enemyTypes.elite > 0) {
-                const eliteColors = { main: '#ff1744', accent: '#d50000', glow: 'rgba(255, 23, 68, 0.4)' };
-                ctx.fillStyle = eliteColors.main;
-                ctx.fillText('精英: ' + enemyTypes.elite, canvas.width - 15, yPos);
-                drawTankBody(ctx, canvas.width - 35, yPos - 12, TANK_SIZE * 0.3, 'down', eliteColors);
-            }
-        } else if (enemies.length > 0) {
-            // 只有一種類型敵人時，顯示對應的圖示
-            if (enemyTypes.normal > 0) {
-                drawTankBody(ctx, canvas.width - 45, 45, TANK_SIZE * 0.5, 'down', COLORS.ENEMY_NORMAL);
-            } else if (enemyTypes.tough > 0) {
-                drawTankBody(ctx, canvas.width - 45, 45, TANK_SIZE * 0.5, 'down', COLORS.ENEMY_TOUGH);
-            } else if (enemyTypes.elite > 0) {
-                const eliteColors = { main: '#ff1744', accent: '#d50000', glow: 'rgba(255, 23, 68, 0.4)' };
-                drawTankBody(ctx, canvas.width - 45, 45, TANK_SIZE * 0.5, 'down', eliteColors);
-            }
-        }
-
-        // AI狀態面板（只在有敵人時且開啟顯示時顯示）
-        if (enemies.length > 0 && currentLevel > 0 && showAIStats) {
-            drawAIStatsPanel(ctx);
-        }
-    }
-
-    function drawAIStatsPanel(ctx) {
-        const panelX = 10; // 移到左上角
-        const panelY = 200; // 移到更低的位置，避免擋住生命和分數顯示
-        const panelWidth = 130; // 縮小寬度
-        const panelHeight = 80; // 縮小高度
-
-        // 面板背景 - 降低透明度
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-        ctx.fillRect(panelX, panelY, panelWidth, panelHeight);
-
-        ctx.strokeStyle = '#666666'; // 使用較淡的邊框
-        ctx.lineWidth = 1;
-        ctx.strokeRect(panelX, panelY, panelWidth, panelHeight);
-
-        // 標題 - 使用較小字體
-        ctx.fillStyle = '#cccccc';
-        ctx.font = '11px "Courier New", Courier, monospace';
-        ctx.textAlign = 'left';
-        ctx.fillText('AI狀態:', panelX + 3, panelY + 12);
-
-        // 統計敵人狀態
-        const states = {};
-
-        enemies.forEach(enemy => {
-            states[enemy.aiState] = (states[enemy.aiState] || 0) + 1;
-        });
-
-        let yOffset = panelY + 25;
-        ctx.font = '10px "Courier New", Courier, monospace';
-
-        // 只顯示主要狀態，使用簡短標籤
-        Object.entries(states).forEach(([state, count]) => {
-            let stateText;
-            let color = '#cccccc';
-
-            switch (state) {
-                case 'SEEKING': stateText = '尋找'; break;
-                case 'RETREATING': stateText = '撤退'; color = '#ffff88'; break;
-                case 'AMBUSHING': stateText = '埋伏'; color = '#cc88ff'; break;
-                case 'FLANKING': stateText = '包抄'; color = '#ffaa88'; break;
-                case 'COORDINATED_ATTACK': stateText = '協攻'; color = '#ff8888'; break;
-                case 'ESCAPING': stateText = '逃脫'; color = '#88ffff'; break;
-                case 'MANEUVERING': stateText = '機動'; break;
-                default: stateText = state.substring(0, 4); // 截斷長狀態名
-            }
-
-            ctx.fillStyle = color;
-            ctx.fillText(`${stateText}:${count}`, panelX + 3, yOffset);
-            yOffset += 12;
-        });
-    }
-
-    let lastTime = 0;
-    function gameLoop(timestamp) {
-        if (!lastTime) lastTime = timestamp;
-        const deltaTime = timestamp - lastTime;
-        lastTime = timestamp;
-
-        // Cap deltaTime to prevent huge jumps (e.g. tab switching)
-        // 60FPS target = 16.6ms
-        // If dt > 100ms, cap it.
-        const safeDt = Math.min(deltaTime, 100);
-
-        // Calculate TimeScale (1.0 at 60FPS)
-        const timeScale = safeDt / (1000 / 60);
-
-        update(timeScale);
-        draw();
-        requestAnimationFrame(gameLoop);
-    }
-
-    // 初始化音效系統（第一次使用者互動時）
-    canvas.addEventListener('click', function () {
-        try {
-            if (!audioInitialized) {
-                initAudio(); // 初始化音效
-            }
-
-            if (gameState === 'LEVEL_CLEAR') {
-                console.log(`進入下一關: ${currentLevel} -> ${currentLevel + 1}`);
-                currentLevel++;
-                init(currentLevel, false); // 不重設分數，繼續下一關
-            }
-            else if (gameState === 'GAME_OVER') {
-                console.log('重新開始遊戲');
-                currentLevel = 0;
-                init(currentLevel, true); // 重設分數，新遊戲
-            }
-        } catch (error) {
-            console.error('點擊事件錯誤:', error);
-        }
-    });
-
-    startBtn.addEventListener('click', function () {
-        if (!audioInitialized) { initAudio(); }
-
-        if (gameState === 'MENU' || gameState === 'GAME_OVER' || gameState === 'LEVEL_CLEAR') {
-            // If level clear, proceed, else reset
-            if (gameState === 'LEVEL_CLEAR') {
-                currentLevel++;
-                init(currentLevel, false);
             } else {
-                currentLevel = 0;
-                init(currentLevel, true);
+                // Check Walls
+                // Note: Piercing bullets can destroy steel? No, let's say they penetrate tanks but stop at steel/walls for balance, 
+                // OR penetrate brick but stop at steel. 
+                // Let's make "Piercing" penetrate TANKS only for now, and standard wall logic.
+                // Actually, let's allow piercing bullets to destroy multiple bricks?
+                // For simplicity: Bullet stops at wall.
+                for (let j = walls.length - 1; j >= 0; j--) {
+                    const wall = walls[j];
+                    if (checkCollision(bullet, wall)) {
+                        if (wall.type === 'brick' || (wall.type === 'steel' && bullet.damage >= 2)) { // Future: heavy bullets
+                            walls.splice(j, 1);
+                            if (bullet.owner instanceof Player) addScore(POINTS.BRICK_DESTROY);
+                            playSound('EXPLOSION');
+                        } else if (wall.type === 'steel') {
+                            playSound('MetalHit'); // We don't have this sound yet, use EXPLOSION
+                        }
+                        bulletRemoved = true;
+                        break; // Stop checking walls
+                    }
+                }
+
+                if (!bulletRemoved && bullet.owner instanceof Player) {
+                    for (let j = enemies.length - 1; j >= 0; j--) {
+                        const enemy = enemies[j];
+                        // If piercing, check if already hit this enemy
+                        if (bullet.type === 'piercing' && bullet.hitList.includes(enemy)) continue;
+
+                        if (checkCollision(bullet, enemy)) {
+                            createExplosion(enemy.x + TANK_SIZE / 2, enemy.y + TANK_SIZE / 2, TANK_SIZE, 'tank');
+                            enemy.takeDamage(bullet.damage);
+
+                            if (bullet.type === 'piercing') {
+                                bullet.hitList.push(enemy); // Mark as hit
+                                // Don't remove bullet!
+                            } else {
+                                bulletRemoved = true;
+                            }
+
+                            if (enemy.health <= 0) {
+                                let points = (enemy.maxHealth === 1) ? POINTS.ENEMY_NORMAL : POINTS.ENEMY_TOUGH;
+                                if (enemy instanceof BossTank) points = 5000; // Boss points
+                                addScore(points);
+                                spawnPowerUp(enemy.x, enemy.y);
+                                playSound('ENEMY_DESTROY');
+                                enemies.splice(j, 1);
+                            } else {
+                                playSound('EXPLOSION');
+                            }
+
+                            if (bulletRemoved) break; // Stop checking enemies if bullet gone
+                        }
+                    }
+                } else if (!bulletRemoved && bullet.owner instanceof Enemy) {
+                    if (player && checkCollision(bullet, player) && !player.invincible && !player.starInvincible) {
+                        if (player.armor) {
+                            player.armor = false;
+                            player.armorTimer = 0;
+                            createExplosion(player.x + TANK_SIZE / 2, player.y + TANK_SIZE / 2, TANK_SIZE / 2, 'armor');
+                            bulletRemoved = true;
+                            playSound('EXPLOSION');
+                        } else {
+                            createExplosion(player.x + TANK_SIZE / 2, player.y + TANK_SIZE / 2, TANK_SIZE, 'tank');
+                            playerLives--;
+                            if (playerLives > 0) {
+                                player.respawn();
+                                playSound('PLAYER_HIT');
+                            } else {
+                                gameState = 'GAME_OVER';
+                                stopBackgroundMusic();
+                                playSound('GAME_OVER');
+                            }
+                            bulletRemoved = true;
+                        }
+                    }
+                }
             }
-        } else if (gameState === 'PAUSED') {
-            gameState = 'PLAYING';
+
+            if (bulletRemoved) {
+                bullets.splice(i, 1);
+            }
+
+            // 道具收集碰撞檢測
+            for (let i = powerUps.length - 1; i >= 0; i--) {
+                const powerUp = powerUps[i];
+
+                if (player && checkCollision(player, powerUp)) {
+                    // 收集道具
+                    player.activatePowerUp(powerUp.type);
+                    addScore(powerUp.config.points);
+                    createExplosion(powerUp.x + powerUp.width / 2, powerUp.y + powerUp.height / 2, POWERUP_SIZE / 2, 'powerup');
+                    powerUps.splice(i, 1);
+                    // 播放道具收集音效
+                    playSound('POWERUP_COLLECT');
+                } else if (powerUp.isExpired()) {
+                    // 道具過期消失
+                    powerUps.splice(i, 1);
+                }
+            }
+        }
+
+        function update(timeScale = 1) {
+            if (gameState !== 'PLAYING') return;
+
+            gameFrame++; // 增加幀數計數器
+
+            if (player) player.update(timeScale);
+            enemies.forEach(e => e.update(timeScale));
+            bullets.forEach(b => b.update(timeScale));
+            powerUps.forEach(p => p.update(timeScale));
+            explosions.forEach((e, index) => {
+                e.update(timeScale);
+                if (e.life <= 0) explosions.splice(index, 1);
+            });
+            particles.forEach((p, index) => {
+                p.update(timeScale);
+                if (p.life <= 0) particles.splice(index, 1);
+            });
+
+            handleCollisions(); // Collision handling is instantaneous, usually fine without timeScale unless complex physics
+
+            // 全域防嵌入檢查（每30幀執行一次 -> Use generic counter or time）
+            // Keep using gameFrame for simplicity as "periodic check"
+            if (gameFrame % 30 === 0) {
+                performGlobalEmbeddingCheck();
+            }
+
+            if (enemies.length === 0 && gameState === 'PLAYING') {
+                // 關卡完成獎勵
+                addScore(POINTS.LEVEL_COMPLETE + (currentLevel * 500));
+                gameState = 'LEVEL_CLEAR';
+                // 播放關卡完成音效
+                playMelody([523, 659, 784, 1047], 0.3); // C-E-G-C 和弦
+            }
+        }
+
+        // 全域防嵌入檢查系統
+        function performGlobalEmbeddingCheck() {
+            const allTanks = [player, ...enemies].filter(tank => tank !== null && tank !== undefined);
+
+            for (const tank of allTanks) {
+                if (tank.isEmbedded()) {
+                    console.warn(`Global check: Tank at (${tank.x}, ${tank.y}) is embedded, attempting to fix...`);
+                    if (!tank.unstickFromObstacles()) {
+                        console.error(`Failed to unstick tank globally, may need manual intervention`);
+                        // 為敵人坦克嘗試強制重置
+                        if (tank instanceof Enemy) {
+                            tank.forceRepositionToSafeLocation();
+                        }
+                    }
+                }
+            }
+        }
+
+        function draw() {
+            // 網格背景動畫
+            drawAnimatedBackground(ctx);
+
+            // 螢幕抖動效果
+            if (screenShake.duration > 0) {
+                screenShake.x = (Math.random() - 0.5) * screenShake.intensity;
+                screenShake.y = (Math.random() - 0.5) * screenShake.intensity;
+                screenShake.duration--;
+                ctx.save();
+                ctx.translate(screenShake.x, screenShake.y);
+            }
+
+            if (base) base.draw(ctx);
+            walls.forEach(w => w.draw(ctx));
+            powerUps.forEach(p => p.draw(ctx));
+            if (player) player.draw(ctx);
+            enemies.forEach(e => e.draw(ctx));
+            explosions.forEach(e => e.draw(ctx)); // Updated in main update()
+            bushes.forEach(b => b.draw(ctx));
+            bullets.forEach(b => b.draw(ctx));
+
+            // 粒子效果 - 已移至 update()
+            particles.forEach(p => p.draw(ctx));
+
+            if (screenShake.duration >= 0) ctx.restore();
+
+            drawUI(ctx);
+
+            if (gameState === 'LEVEL_CLEAR') { drawMessageScreen('LEVEL CLEAR', 'Press Enter or Click to Start Next Level', 'white'); }
+            else if (gameState === 'GAME_OVER') { drawMessageScreen('GAME OVER', 'Press Enter or Click to Restart', 'red', 70); }
+            else if (gameState === 'PAUSED') { drawMessageScreen('PAUSED', 'Press Pause button to continue', '#00bcd4'); }
+        }
+
+        function drawAnimatedBackground(ctx) {
+            if (!VISUAL_EFFECTS.BACKGROUND_ANIMATION) {
+                ctx.fillStyle = COLORS.BACKGROUND.main;
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                return;
+            }
+
+            // 游式背景
+            const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+            gradient.addColorStop(0, COLORS.BACKGROUND.main);
+            gradient.addColorStop(1, COLORS.BACKGROUND.accent);
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 動畫網格
+            backgroundOffset += 0.5;
+            ctx.strokeStyle = COLORS.BACKGROUND.grid;
+            ctx.lineWidth = 1;
+
+            const gridSize = TILE_SIZE;
+            for (let x = -gridSize + (backgroundOffset % gridSize); x < canvas.width; x += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+
+            for (let y = -gridSize + (backgroundOffset % gridSize); y < canvas.height; y += gridSize) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+        }
+
+        function drawMessageScreen(title, subtitle, color, titleSize = 50) {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)'; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = color; ctx.font = `${titleSize}px "Courier New", Courier, monospace`;
+            ctx.textAlign = 'center'; ctx.fillText(title, canvas.width / 2, canvas.height / 2 - 20);
+            if (subtitle) { ctx.font = '30px "Courier New", Courier, monospace'; ctx.fillText(subtitle, canvas.width / 2, canvas.height / 2 + 40); }
+        }
+
+        function drawUI(ctx) {
+            ctx.fillStyle = COLORS.UI.main;
+            ctx.font = '22px "Courier New", Courier, monospace';
+            ctx.textAlign = 'left';
+
+            // 生命顯示
+            drawTankBody(ctx, 15, 15, TANK_SIZE * 0.6, 'up', COLORS.PLAYER);
+            ctx.fillText('x ' + playerLives, 50, 35);
+
+            let yOffset = 125;
+
+            // 無敵狀態指示
+            if (player && player.invincible) {
+                ctx.fillStyle = COLORS.UI.accent;
+                ctx.font = '18px "Courier New", Courier, monospace';
+                const timeLeft = Math.ceil(player.invincibilityTimer / 60);
+                ctx.fillText('重生無敵: ' + timeLeft + 's', 15, yOffset);
+                yOffset += 25;
+            }
+
+            // 道具效果指示
+            if (player) {
+                ctx.font = '18px "Courier New", Courier, monospace';
+
+                if (player.rapidFire) {
+                    ctx.fillStyle = COLORS.UI.danger;
+                    const timeLeft = Math.ceil(player.rapidFireTimer / 60);
+                    ctx.fillText('快速射擊: ' + timeLeft + 's', 15, yOffset);
+                    yOffset += 25;
+                }
+
+                if (player.armor) {
+                    ctx.fillStyle = COLORS.UI.accent;
+                    const timeLeft = Math.ceil(player.armorTimer / 60);
+                    ctx.fillText('護甲: ' + timeLeft + 's', 15, yOffset);
+                    yOffset += 25;
+                }
+
+                if (player.starInvincible) {
+                    ctx.fillStyle = COLORS.UI.warning;
+                    const timeLeft = Math.ceil(player.starInvincibleTimer / 60);
+                    ctx.fillText('無敵星星: ' + timeLeft + 's', 15, yOffset);
+                    yOffset += 25;
+                }
+            }
+
+            // 分數顯示
+            ctx.fillStyle = COLORS.UI.main;
+            ctx.font = '22px "Courier New", Courier, monospace';
+            ctx.fillText('分數: ' + playerScore.toLocaleString(), 15, 65);
+
+            // 最高分顯示
+            ctx.fillStyle = COLORS.UI.warning;
+            ctx.fillText('最高: ' + highScore.toLocaleString(), 15, 95);
+
+            // 關卡顯示
+            ctx.fillStyle = COLORS.UI.main;
+            ctx.textAlign = 'right';
+            ctx.fillText('關卡 ' + (currentLevel + 1), canvas.width - 15, 35);
+
+            // 敵人剩餘數量顯示（增強版）
+            ctx.fillStyle = COLORS.UI.danger;
+            ctx.font = '20px "Courier New", Courier, monospace';
+            ctx.fillText('敵人: ' + enemies.length, canvas.width - 15, 65);
+
+            // 統計不同類型敵人數量
+            const enemyTypes = { normal: 0, tough: 0, elite: 0 };
+            enemies.forEach(enemy => {
+                if (enemy.maxHealth === 2) enemyTypes.normal++;
+                else if (enemy.maxHealth === 3) enemyTypes.tough++;
+                else if (enemy.maxHealth >= 4) enemyTypes.elite++;
+            });
+
+            // 顯示敵人類型分佈（只在有多種類型時顯示）
+            let typeCount = 0;
+            if (enemyTypes.normal > 0) typeCount++;
+            if (enemyTypes.tough > 0) typeCount++;
+            if (enemyTypes.elite > 0) typeCount++;
+
+            if (typeCount > 1) {
+                ctx.font = '14px "Courier New", Courier, monospace';
+                let yPos = 85;
+
+                if (enemyTypes.normal > 0) {
+                    ctx.fillStyle = COLORS.ENEMY_NORMAL.main;
+                    ctx.fillText('普通: ' + enemyTypes.normal, canvas.width - 15, yPos);
+                    drawTankBody(ctx, canvas.width - 35, yPos - 12, TANK_SIZE * 0.3, 'down', COLORS.ENEMY_NORMAL);
+                    yPos += 18;
+                }
+
+                if (enemyTypes.tough > 0) {
+                    ctx.fillStyle = COLORS.ENEMY_TOUGH.main;
+                    ctx.fillText('強化: ' + enemyTypes.tough, canvas.width - 15, yPos);
+                    drawTankBody(ctx, canvas.width - 35, yPos - 12, TANK_SIZE * 0.3, 'down', COLORS.ENEMY_TOUGH);
+                    yPos += 18;
+                }
+
+                if (enemyTypes.elite > 0) {
+                    const eliteColors = { main: '#ff1744', accent: '#d50000', glow: 'rgba(255, 23, 68, 0.4)' };
+                    ctx.fillStyle = eliteColors.main;
+                    ctx.fillText('精英: ' + enemyTypes.elite, canvas.width - 15, yPos);
+                    drawTankBody(ctx, canvas.width - 35, yPos - 12, TANK_SIZE * 0.3, 'down', eliteColors);
+                }
+            } else if (enemies.length > 0) {
+                // 只有一種類型敵人時，顯示對應的圖示
+                if (enemyTypes.normal > 0) {
+                    drawTankBody(ctx, canvas.width - 45, 45, TANK_SIZE * 0.5, 'down', COLORS.ENEMY_NORMAL);
+                } else if (enemyTypes.tough > 0) {
+                    drawTankBody(ctx, canvas.width - 45, 45, TANK_SIZE * 0.5, 'down', COLORS.ENEMY_TOUGH);
+                } else if (enemyTypes.elite > 0) {
+                    const eliteColors = { main: '#ff1744', accent: '#d50000', glow: 'rgba(255, 23, 68, 0.4)' };
+                    drawTankBody(ctx, canvas.width - 45, 45, TANK_SIZE * 0.5, 'down', eliteColors);
+                }
+            }
+
+            // AI狀態面板（只在有敵人時且開啟顯示時顯示）
+            if (enemies.length > 0 && currentLevel > 0 && showAIStats) {
+                drawAIStatsPanel(ctx);
+            }
+        }
+
+        function drawAIStatsPanel(ctx) {
+            const panelX = 10; // 移到左上角
+            const panelY = 200; // 移到更低的位置，避免擋住生命和分數顯示
+            const panelWidth = 130; // 縮小寬度
+            const panelHeight = 80; // 縮小高度
+
+            // 面板背景 - 降低透明度
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.fillRect(panelX, panelY, panelWidth, panelHeight);
+
+            ctx.strokeStyle = '#666666'; // 使用較淡的邊框
+            ctx.lineWidth = 1;
+            ctx.strokeRect(panelX, panelY, panelWidth, panelHeight);
+
+            // 標題 - 使用較小字體
+            ctx.fillStyle = '#cccccc';
+            ctx.font = '11px "Courier New", Courier, monospace';
+            ctx.textAlign = 'left';
+            ctx.fillText('AI狀態:', panelX + 3, panelY + 12);
+
+            // 統計敵人狀態
+            const states = {};
+
+            enemies.forEach(enemy => {
+                states[enemy.aiState] = (states[enemy.aiState] || 0) + 1;
+            });
+
+            let yOffset = panelY + 25;
+            ctx.font = '10px "Courier New", Courier, monospace';
+
+            // 只顯示主要狀態，使用簡短標籤
+            Object.entries(states).forEach(([state, count]) => {
+                let stateText;
+                let color = '#cccccc';
+
+                switch (state) {
+                    case 'SEEKING': stateText = '尋找'; break;
+                    case 'RETREATING': stateText = '撤退'; color = '#ffff88'; break;
+                    case 'AMBUSHING': stateText = '埋伏'; color = '#cc88ff'; break;
+                    case 'FLANKING': stateText = '包抄'; color = '#ffaa88'; break;
+                    case 'COORDINATED_ATTACK': stateText = '協攻'; color = '#ff8888'; break;
+                    case 'ESCAPING': stateText = '逃脫'; color = '#88ffff'; break;
+                    case 'MANEUVERING': stateText = '機動'; break;
+                    default: stateText = state.substring(0, 4); // 截斷長狀態名
+                }
+
+                ctx.fillStyle = color;
+                ctx.fillText(`${stateText}:${count}`, panelX + 3, yOffset);
+                yOffset += 12;
+            });
+        }
+
+        let lastTime = 0;
+        function gameLoop(timestamp) {
+            if (!lastTime) lastTime = timestamp;
+            const deltaTime = timestamp - lastTime;
+            lastTime = timestamp;
+
+            // Cap deltaTime to prevent huge jumps (e.g. tab switching)
+            // 60FPS target = 16.6ms
+            // If dt > 100ms, cap it.
+            const safeDt = Math.min(deltaTime, 100);
+
+            // Calculate TimeScale (1.0 at 60FPS)
+            const timeScale = safeDt / (1000 / 60);
+
+            update(timeScale);
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // 初始化音效系統（第一次使用者互動時）
+        canvas.addEventListener('click', function () {
+            try {
+                if (!audioInitialized) {
+                    initAudio(); // 初始化音效
+                }
+
+                if (gameState === 'LEVEL_CLEAR') {
+                    console.log(`進入下一關: ${currentLevel} -> ${currentLevel + 1}`);
+                    currentLevel++;
+                    init(currentLevel, false); // 不重設分數，繼續下一關
+                }
+                else if (gameState === 'GAME_OVER') {
+                    console.log('重新開始遊戲');
+                    currentLevel = 0;
+                    init(currentLevel, true); // 重設分數，新遊戲
+                }
+            } catch (error) {
+                console.error('點擊事件錯誤:', error);
+            }
+        });
+
+        startBtn.addEventListener('click', function () {
+            if (!audioInitialized) { initAudio(); }
+
+            if (gameState === 'MENU' || gameState === 'GAME_OVER' || gameState === 'LEVEL_CLEAR') {
+                // If level clear, proceed, else reset
+                if (gameState === 'LEVEL_CLEAR') {
+                    currentLevel++;
+                    init(currentLevel, false);
+                } else {
+                    currentLevel = 0;
+                    init(currentLevel, true);
+                }
+            } else if (gameState === 'PAUSED') {
+                gameState = 'PLAYING';
+                pauseBtn.textContent = '暫停遊戲';
+                resumeBackgroundMusic();
+            }
+        });
+
+        pauseBtn.addEventListener('click', function () {
+            if (!audioInitialized) {
+                initAudio(); // 確保音效已初始化
+            }
+            if (gameState === 'PLAYING') {
+                gameState = 'PAUSED';
+                pauseBtn.textContent = '繼續遊戲';
+                pauseBackgroundMusic(); // 暫停背景音樂
+            }
+            else if (gameState === 'PAUSED') {
+                gameState = 'PLAYING';
+                pauseBtn.textContent = '暫停遊戲';
+                resumeBackgroundMusic(); // 恢復背景音樂
+            }
+        });
+
+        endBtn.addEventListener('click', function () {
+            gameState = 'GAME_OVER';
             pauseBtn.textContent = '暫停遊戲';
-            resumeBackgroundMusic();
+            stopBackgroundMusic(); // 停止背景音樂
+        });
+
+        new InputHandler();
+
+        // 嘗試自動初始化音效（某些瀏覽器需要使用者互動）
+        try {
+            initAudio();
+        } catch (error) {
+            console.log('等待使用者互動來啟動音效');
         }
+
+        init(currentLevel, true); // 第一次開始遊戲時重設分數
+        gameLoop();
     });
-
-    pauseBtn.addEventListener('click', function () {
-        if (!audioInitialized) {
-            initAudio(); // 確保音效已初始化
-        }
-        if (gameState === 'PLAYING') {
-            gameState = 'PAUSED';
-            pauseBtn.textContent = '繼續遊戲';
-            pauseBackgroundMusic(); // 暫停背景音樂
-        }
-        else if (gameState === 'PAUSED') {
-            gameState = 'PLAYING';
-            pauseBtn.textContent = '暫停遊戲';
-            resumeBackgroundMusic(); // 恢復背景音樂
-        }
-    });
-
-    endBtn.addEventListener('click', function () {
-        gameState = 'GAME_OVER';
-        pauseBtn.textContent = '暫停遊戲';
-        stopBackgroundMusic(); // 停止背景音樂
-    });
-
-    new InputHandler();
-
-    // 嘗試自動初始化音效（某些瀏覽器需要使用者互動）
-    try {
-        initAudio();
-    } catch (error) {
-        console.log('等待使用者互動來啟動音效');
-    }
-
-    init(currentLevel, true); // 第一次開始遊戲時重設分數
-    gameLoop();
-});
