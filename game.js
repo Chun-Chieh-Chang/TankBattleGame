@@ -2545,44 +2545,39 @@ window.addEventListener('load', function () {
         return true;
     }
 
+    let isInitializing = false;
     function init(levelIndex, resetScore = false) {
+        if (isInitializing) return;
+        isInitializing = true;
+
         try {
+            console.log(`正在初始化關卡 ${levelIndex + 1}...`);
             keys = {}; enemies = []; bullets = []; walls = []; explosions = []; bushes = []; powerUps = []; base = null;
             gameState = 'PLAYING';
             pauseBtn.textContent = '暫停遊戲';
 
-            // 重啟背景音樂（如果已初始化）
             if (audioInitialized) {
                 stopBackgroundMusic();
-                setTimeout(() => startBackgroundMusic(), 100); // 稍微延遲以確保清理完成
+                setTimeout(() => startBackgroundMusic(), 100);
             }
 
-            // 只有新遊戲或重新開始時才重設分數
             if (resetScore) {
                 playerLives = PLAYER_START_LIVES;
                 playerScore = 0;
             }
 
-            // 改進關卡選擇邏輯
             let layout;
             if (levelIndex < levelLayouts.length) {
-                // 使用設計好的關卡
                 layout = levelLayouts[levelIndex];
             } else {
-                // 超出設計關卡後，使用隨機變化
                 const baseLayoutIndex = (levelIndex - levelLayouts.length) % levelLayouts.length;
                 layout = generateVariationLevel(levelLayouts[baseLayoutIndex], levelIndex);
             }
 
             if (!layout) {
-                console.error('關卡佈局未找到，使用預設關卡');
-                layout = levelLayouts[0]; // 後援方案
+                console.error('關卡佈局未找到');
+                layout = levelLayouts[0];
             }
-
-            initTanksAndWalls(layout);
-
-            // 初始化後構建一次導航網格
-            Enemy.syncCollisionGrid();
 
             playerSpawnPos = { x: canvas.width / 2 - TILE_SIZE * 4, y: canvas.height - TILE_SIZE };
             player = new Player(playerSpawnPos.x, playerSpawnPos.y);
@@ -2598,14 +2593,19 @@ window.addEventListener('load', function () {
                     else if (tileType === 3) { walls.push(new Wall(x, y, 'brick')); }
                 }
             }
-            spawnEnemies(levelIndex);
 
-            console.log(`初始化關卡 ${levelIndex + 1} ${levelIndex < levelLayouts.length ? '(設計關卡)' : '(程序生成關卡)'} 成功`);
+            // 重要：同步碰撞網格以供 AI 尋路使用
+            if (typeof Enemy !== 'undefined' && Enemy.syncCollisionGrid) {
+                Enemy.syncCollisionGrid();
+            }
+
+            spawnEnemies(levelIndex);
+            console.log(`關卡 ${levelIndex + 1} 初始化成功`);
         } catch (error) {
-            console.error('關卡初始化錯誤:', error);
-            // 強制重設為第一關
-            currentLevel = 0;
-            init(0, true);
+            console.error('!!! 關卡初始化嚴重錯誤 !!!', error);
+            gameState = 'MENU'; // 返回選單模式而不是遞迴重試
+        } finally {
+            isInitializing = false;
         }
     }
 
