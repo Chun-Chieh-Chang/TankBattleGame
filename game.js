@@ -1232,7 +1232,7 @@ window.addEventListener('load', function () {
                         this.provideCoverFire();
                         break;
                     case 'SCOUT':
-                        this.attemptFlanking();
+                        this.initiateFlanking();
                         break;
                 }
             } else {
