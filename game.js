@@ -6,7 +6,7 @@ window.addEventListener('load', function () {
     const endBtn = document.getElementById('endBtn');
 
     // --- 遊戲設定 ---
-    const TILE_SIZE = 40;
+    const TILE_SIZE = 48; // Expanded by 20% (Original: 40)
     const MAP_WIDTH_TILES = 20;
     const MAP_HEIGHT_TILES = 15;
 
@@ -34,6 +34,17 @@ window.addEventListener('load', function () {
     let backgroundOffset = 0;
     let screenShake = { x: 0, y: 0, intensity: 0, duration: 0 };
     let particles = [];
+    
+    // --- 優化物件池與網格 ---
+    let bulletPool, particlePool, spatialGrid;
+    try {
+        bulletPool = new ObjectPool(() => new Bullet(0, 0, 'up', null), 200);
+        particlePool = new ObjectPool(() => new Particle(0, 0), 300);
+        spatialGrid = new SpatialGrid(canvas.width, canvas.height, TILE_SIZE * 2);
+    } catch (e) {
+        console.warn('Optimization classes not loaded, falling back to standard instantiation', e);
+        // Fallback or handle error
+    }
 
     // --- 顏色與敵人設定 ---
     const COLORS = {
@@ -125,178 +136,9 @@ window.addEventListener('load', function () {
     };
 
     // --- 地圖佈局 ---
-    const levelLayouts = [
-        [ /* Level 1 - 基礎關卡 */
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 1, 1, 0, 0, 0, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 0, 0],
-            [0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 1, 0, 2, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 1, 1, 0, 0, 0, 2, 2, 0, 0, 0, 1, 1, 0, 0, 0, 0],
-            [1, 1, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 1, 1],
-            [1, 1, 0, 0, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 0, 0, 1, 1],
-            [0, 0, 0, 0, 0, 0, 1, 2, 2, 0, 0, 2, 2, 1, 0, 0, 0, 0, 0, 0],
-            [0, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0],
-            [0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 0, 1, 1, 0, 0],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
-            [1, 1, 1, 0, 1, 1, 1, 0, 0, 3, 3, 3, 3, 0, 0, 1, 1, 1, 0, 1, 1, 1],
-            [2, 2, 1, 0, 0, 0, 0, 3, 1, 1, 1, 1, 3, 0, 0, 0, 0, 1, 2, 2],
-            [0, 0, 0, 0, 0, 0, 0, 3, 1, 4, 1, 3, 3, 0, 0, 0, 0, 0, 0, 0],
-        ],
-        [ /* Level 2 - 叢林迷宮 */
-            [0, 5, 5, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 5, 5, 0],
-            [0, 5, 5, 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 1, 0, 0, 0, 5, 5, 0],
-            [0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
-            [0, 0, 0, 0, 1, 2, 1, 0, 0, 1, 1, 0, 0, 1, 2, 1, 0, 0, 0, 0],
-            [1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1],
-            [2, 1, 0, 0, 5, 5, 5, 0, 0, 0, 0, 0, 0, 5, 5, 5, 0, 0, 1, 2],
-            [0, 0, 0, 0, 5, 5, 5, 0, 1, 1, 1, 1, 0, 5, 5, 5, 0, 0, 0, 0],
-            [0, 0, 1, 1, 0, 0, 0, 0, 1, 2, 2, 1, 0, 0, 0, 0, 1, 1, 0, 0],
-            [0, 0, 2, 1, 0, 0, 1, 1, 1, 0, 0, 1, 1, 1, 0, 0, 1, 2, 0, 0],
-            [0, 0, 0, 0, 0, 0, 1, 2, 1, 0, 0, 1, 2, 1, 0, 0, 0, 0, 0, 0],
-            [0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0],
-            [1, 1, 2, 0, 0, 0, 0, 0, 5, 5, 5, 5, 0, 0, 0, 0, 2, 1, 1, 1],
-            [1, 1, 1, 0, 1, 1, 1, 0, 0, 3, 3, 3, 3, 0, 0, 1, 1, 1, 0, 1, 1, 1],
-            [2, 2, 1, 0, 0, 0, 0, 3, 1, 1, 1, 1, 3, 0, 0, 0, 0, 1, 2, 2],
-            [0, 0, 0, 0, 0, 0, 0, 3, 1, 4, 1, 3, 3, 0, 0, 0, 0, 0, 0, 0],
-        ],
-        [ /* Level 3 - 十字要塞 (修復封閉區域) */
-            [2, 2, 2, 2, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 2, 2, 2, 2],
-            [2, 0, 0, 2, 0, 1, 1, 1, 0, 1, 1, 0, 1, 1, 1, 0, 2, 0, 0, 2],
-            [2, 0, 0, 2, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 2, 0, 0, 2],
-            [2, 0, 0, 2, 0, 1, 0, 5, 5, 5, 5, 5, 5, 0, 1, 0, 2, 0, 0, 2], // 開放左右端
-            [0, 0, 0, 0, 0, 0, 0, 5, 2, 2, 2, 2, 5, 0, 0, 0, 0, 0, 0, 0],
-            [0, 1, 1, 0, 5, 5, 0, 5, 2, 0, 0, 2, 5, 0, 5, 5, 0, 1, 1, 0], // 開放通道
-            [0, 1, 0, 0, 5, 2, 0, 2, 2, 0, 0, 2, 2, 0, 2, 5, 0, 0, 1, 0], // 減少封閉
-            [0, 1, 0, 5, 5, 2, 0, 0, 0, 0, 0, 0, 0, 0, 2, 5, 5, 0, 1, 0],
-            [0, 1, 0, 5, 5, 2, 0, 0, 0, 0, 0, 0, 0, 0, 2, 5, 5, 0, 1, 0],
-            [0, 1, 0, 0, 5, 2, 0, 2, 2, 0, 0, 2, 2, 0, 2, 5, 0, 0, 1, 0], // 減少封閉
-            [0, 1, 1, 0, 5, 5, 0, 5, 2, 0, 0, 2, 5, 0, 5, 5, 0, 1, 1, 0], // 開放通道
-            [0, 0, 0, 0, 0, 0, 0, 5, 2, 2, 2, 2, 5, 0, 0, 0, 0, 0, 0, 0],
-            [1, 1, 1, 0, 1, 1, 1, 5, 5, 3, 3, 3, 3, 5, 1, 1, 1, 0, 1, 1, 1],
-            [2, 2, 1, 0, 0, 0, 0, 3, 1, 1, 1, 1, 3, 0, 0, 0, 0, 1, 2, 2],
-            [0, 0, 0, 0, 0, 0, 0, 3, 1, 4, 1, 3, 3, 0, 0, 0, 0, 0, 0, 0],
-        ],
-        [ /* Level 4 - 鋼鐵陣地 */
-            [2, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2],
-            [2, 0, 0, 0, 2, 0, 0, 0, 0, 5, 5, 0, 0, 0, 0, 2, 0, 0, 0, 2],
-            [2, 0, 5, 0, 2, 0, 1, 1, 0, 5, 5, 0, 1, 1, 0, 2, 0, 5, 0, 2],
-            [2, 0, 5, 0, 0, 0, 1, 2, 0, 0, 0, 0, 2, 1, 0, 0, 0, 5, 0, 2],
-            [2, 0, 5, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 5, 0, 2], // 開放封閉區域
-            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-            [1, 0, 2, 2, 0, 1, 1, 1, 0, 2, 2, 0, 1, 1, 1, 0, 2, 2, 0, 1],
-            [1, 0, 2, 2, 0, 1, 0, 0, 0, 2, 2, 0, 0, 0, 1, 0, 2, 2, 0, 1],
-            [1, 0, 2, 2, 0, 1, 0, 0, 0, 2, 2, 0, 0, 0, 1, 0, 2, 2, 0, 1],
-            [1, 0, 2, 2, 0, 1, 1, 1, 0, 2, 2, 0, 1, 1, 1, 0, 2, 2, 0, 1],
-            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-            [2, 0, 5, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 5, 0, 2], // 開放封閉區域
-            [1, 1, 1, 0, 1, 1, 1, 0, 5, 3, 3, 3, 3, 5, 1, 1, 1, 0, 1, 1, 1],
-            [2, 2, 1, 0, 0, 0, 0, 3, 1, 1, 1, 1, 3, 0, 0, 0, 0, 1, 2, 2],
-            [0, 0, 0, 0, 0, 0, 0, 3, 1, 4, 1, 3, 3, 0, 0, 0, 0, 0, 0, 0],
-        ],
-        [ /* Level 5 - 螺旋迷宮 (修復封閉區域) */
-            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
-            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1],
-            [1, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 1],
-            [1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 1],
-            [1, 0, 2, 0, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 0, 2, 0, 1],
-            [1, 0, 2, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 2, 0, 1],
-            [1, 0, 2, 0, 5, 0, 2, 2, 2, 2, 2, 2, 2, 0, 0, 5, 0, 2, 0, 1], // 開放右側
-            [1, 0, 2, 0, 5, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 5, 0, 2, 0, 1], // 開放內部
-            [1, 0, 2, 0, 5, 0, 2, 0, 5, 5, 0, 5, 0, 0, 0, 5, 0, 2, 0, 1], // 開放核心
-            [1, 0, 2, 0, 5, 0, 2, 0, 5, 0, 0, 5, 0, 0, 0, 5, 0, 2, 0, 1], // 開放核心
-            [1, 0, 2, 0, 5, 0, 2, 0, 5, 0, 0, 5, 0, 0, 0, 5, 0, 2, 0, 1], // 開放核心
-            [1, 0, 2, 0, 5, 0, 2, 0, 5, 5, 0, 5, 0, 0, 0, 5, 0, 2, 0, 1], // 開放核心
-            [1, 1, 1, 0, 1, 1, 1, 0, 0, 3, 3, 3, 3, 0, 1, 1, 1, 0, 1, 1, 1],
-            [2, 2, 1, 0, 0, 0, 0, 3, 1, 1, 1, 1, 3, 0, 0, 0, 0, 1, 2, 2],
-            [0, 0, 0, 0, 0, 0, 0, 3, 1, 4, 1, 3, 3, 0, 0, 0, 0, 0, 0, 0],
-        ],
-        [ /* Level 6 - 叢林伏擊 (更多草叢) */
-            [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5],
-            [5, 0, 0, 0, 5, 0, 0, 0, 5, 0, 0, 0, 5, 0, 0, 0, 5, 0, 0, 5],
-            [5, 0, 1, 1, 5, 1, 1, 1, 5, 1, 1, 1, 5, 1, 1, 1, 5, 1, 0, 5],
-            [5, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 5],
-            [5, 0, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 1, 0, 5],
-            [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
-            [5, 5, 5, 1, 1, 1, 5, 5, 5, 1, 1, 1, 5, 5, 5, 1, 1, 1, 5, 5],
-            [0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2, 0, 0, 0],
-            [5, 5, 5, 1, 1, 1, 5, 5, 5, 1, 1, 1, 5, 5, 5, 1, 1, 1, 5, 5],
-            [5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5],
-            [5, 0, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 2, 1, 2, 2, 1, 0, 5],
-            [5, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 5],
-            [5, 1, 1, 5, 1, 1, 1, 0, 0, 3, 3, 3, 3, 0, 1, 1, 1, 5, 1, 5],
-            [5, 2, 1, 5, 0, 0, 0, 3, 1, 1, 1, 1, 3, 0, 0, 0, 0, 5, 2, 5],
-            [5, 0, 0, 0, 0, 0, 0, 3, 1, 4, 1, 3, 3, 0, 0, 0, 0, 0, 0, 5],
-        ],
-        [ /* Level 7 - 死亡迴廊 (狹窄通道) */
-            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-            [2, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2],
-            [2, 0, 2, 2, 2, 0, 2, 0, 2, 2, 2, 2, 0, 2, 0, 2, 2, 2, 0, 2],
-            [2, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 2],
-            [2, 0, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 0, 2],
-            [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
-            [2, 2, 2, 2, 2, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 2, 2, 2, 2, 2],
-            [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
-            [2, 0, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 0, 2],
-            [2, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 2],
-            [2, 0, 2, 2, 2, 0, 2, 0, 2, 2, 2, 2, 0, 2, 0, 2, 2, 2, 0, 2],
-            [2, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 2],
-            [2, 1, 1, 0, 1, 1, 1, 0, 0, 3, 3, 3, 3, 0, 1, 1, 1, 0, 1, 2],
-            [2, 2, 1, 0, 0, 0, 0, 3, 1, 1, 1, 1, 3, 0, 0, 0, 0, 1, 2, 2],
-            [2, 0, 0, 0, 0, 0, 0, 3, 1, 4, 1, 3, 3, 0, 0, 0, 0, 0, 0, 2],
-        ],
-        [ /* Level 8 - 破碎島嶼 (水域概念 - 用鋼牆模擬不可通過但可射擊 - 暫用鋼牆) */
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [0, 1, 1, 1, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 1, 1, 1, 0],
-            [0, 1, 5, 1, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 1, 5, 1, 0],
-            [0, 1, 1, 1, 0, 0, 2, 0, 1, 1, 1, 1, 0, 2, 0, 0, 1, 1, 1, 0],
-            [0, 0, 0, 0, 0, 0, 2, 0, 1, 5, 5, 1, 0, 2, 0, 0, 0, 0, 0, 0],
-            [0, 2, 2, 2, 0, 0, 0, 0, 1, 5, 5, 1, 0, 0, 0, 0, 2, 2, 2, 0],
-            [0, 2, 0, 2, 0, 0, 2, 0, 1, 1, 1, 1, 0, 2, 0, 0, 2, 0, 2, 0],
-            [0, 2, 0, 2, 0, 0, 2, 0, 0, 0, 0, 0, 0, 2, 0, 0, 2, 0, 2, 0],
-            [0, 2, 0, 2, 0, 0, 2, 2, 2, 0, 0, 2, 2, 2, 0, 0, 2, 0, 2, 0],
-            [0, 2, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 0],
-            [0, 0, 0, 0, 0, 0, 2, 0, 1, 1, 1, 1, 0, 2, 0, 0, 0, 0, 0, 0],
-            [0, 1, 1, 1, 0, 0, 2, 0, 1, 0, 0, 1, 0, 2, 0, 0, 1, 1, 1, 0],
-            [1, 1, 1, 0, 1, 1, 1, 0, 0, 3, 3, 3, 3, 0, 1, 1, 1, 0, 1, 1, 1],
-            [2, 2, 1, 0, 0, 0, 0, 3, 1, 1, 1, 1, 3, 0, 0, 0, 0, 1, 2, 2],
-            [0, 0, 0, 0, 0, 0, 0, 3, 1, 4, 1, 3, 3, 0, 0, 0, 0, 0, 0, 0],
-        ],
-        [ /* Level 9 - 棋盤戰場 (密集障礙) */
-            [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
-            [0, 2, 0, 2, 0, 2, 0, 2, 0, 0, 0, 0, 2, 0, 2, 0, 2, 0, 2, 0],
-            [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
-            [0, 2, 0, 2, 0, 2, 0, 2, 0, 0, 0, 0, 2, 0, 2, 0, 2, 0, 2, 0],
-            [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [1, 2, 1, 2, 1, 2, 1, 2, 0, 0, 0, 0, 2, 1, 2, 1, 2, 1, 2, 1],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
-            [0, 2, 0, 2, 0, 2, 0, 2, 0, 0, 0, 0, 2, 0, 2, 0, 2, 0, 2, 0],
-            [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1],
-            [0, 2, 0, 2, 0, 2, 0, 2, 0, 0, 0, 0, 2, 0, 2, 0, 2, 0, 2, 0],
-            [1, 1, 1, 0, 1, 1, 1, 0, 0, 3, 3, 3, 3, 0, 1, 1, 1, 0, 1, 1, 1],
-            [2, 2, 1, 0, 0, 0, 0, 3, 1, 1, 1, 1, 3, 0, 0, 0, 0, 1, 2, 2],
-            [0, 0, 0, 0, 0, 0, 0, 3, 1, 4, 1, 3, 3, 0, 0, 0, 0, 0, 0, 0],
-        ],
-        [ /* Level 10 - 最終防線 (堡壘) */
-            [2, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2],
-            [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
-            [2, 0, 2, 2, 2, 2, 2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 0, 2],
-            [2, 0, 2, 1, 1, 1, 1, 1, 2, 0, 0, 2, 1, 1, 1, 1, 1, 2, 0, 2],
-            [2, 0, 2, 1, 5, 5, 5, 1, 2, 0, 0, 2, 1, 5, 5, 5, 1, 2, 0, 2],
-            [2, 0, 2, 1, 5, 0, 5, 1, 2, 0, 0, 2, 1, 5, 0, 5, 1, 2, 0, 2],
-            [2, 0, 2, 1, 5, 5, 5, 1, 2, 0, 0, 2, 1, 5, 5, 5, 1, 2, 0, 2],
-            [2, 0, 2, 1, 1, 1, 1, 1, 2, 0, 0, 2, 1, 1, 1, 1, 1, 2, 0, 2],
-            [2, 0, 2, 2, 2, 0, 2, 2, 2, 0, 0, 2, 2, 2, 0, 2, 2, 2, 0, 2],
-            [2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2],
-            [2, 2, 2, 2, 2, 0, 2, 2, 2, 0, 0, 2, 2, 2, 0, 2, 2, 2, 2, 2],
-            [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
-            [1, 1, 1, 0, 1, 1, 1, 0, 0, 3, 3, 3, 3, 0, 1, 1, 1, 0, 1, 1, 1],
-            [2, 2, 1, 0, 0, 0, 0, 3, 1, 1, 1, 1, 3, 0, 0, 0, 0, 1, 2, 2],
-            [0, 0, 0, 0, 0, 0, 0, 3, 1, 4, 1, 3, 3, 0, 0, 0, 0, 0, 0, 0],
-        ]
-    ];
+    // 關卡資料已移至 levels.js
+    const levelLayouts = LEVEL_LAYOUTS;
+
     let keys = {}, player, base;
     let enemies = [], bullets = [], walls = [], explosions = [], bushes = [], powerUps = [];
     let playerLives, playerSpawnPos;
@@ -746,7 +588,8 @@ window.addEventListener('load', function () {
                 case 'left': bulletX = this.x - BULLET_SIZE; bulletY = center_y - BULLET_SIZE / 2; break;
                 case 'right': bulletX = this.x + this.width; bulletY = center_y - BULLET_SIZE / 2; break;
             }
-            bullets.push(new Bullet(bulletX, bulletY, this.direction, this));
+            const b = bulletPool ? bulletPool.get(bulletX, bulletY, this.direction, this) : new Bullet(bulletX, bulletY, this.direction, this);
+            bullets.push(b);
             // 槍口火光效果
             createParticles(bulletX + BULLET_SIZE / 2, bulletY + BULLET_SIZE / 2, 3, 'spark');
         }
@@ -845,26 +688,19 @@ window.addEventListener('load', function () {
         }
 
         executeShoot() {
+            let bulletX, bulletY;
             if (this.weapon === 'shotgun') {
                 const spread = ['up', 'down'].includes(this.direction) ? ['left', 'right'] : ['up', 'down'];
                 // Main bullet
                 super.executeShoot();
-                // Flanking bullets (simplified visual spread not actual arc)
-                // Actually, shotgun should shoot 3 bullets in slightly different angles. 
-                // Since our grid is strict, let's shoot 3 parallel bullets or 1 fast one.
-                // Let's do 3-way spread if space permits.
+                
                 const center_x = this.x + this.width / 2;
                 const center_y = this.y + this.height / 2;
-                let b1x, b1y, b2x, b2y;
                 let perpX = 0, perpY = 0;
 
                 if (this.direction === 'up' || this.direction === 'down') { perpX = 15; }
                 else { perpY = 15; }
 
-                // Hacky way to add spread bullets: manually add 2 more
-                // We reuse base calculation from super but offset origin? No, we need separate bullets.
-                // Let's just create 2 more bullets with slight offset.
-                let bulletX, bulletY;
                 switch (this.direction) {
                     case 'up': bulletX = center_x - BULLET_SIZE / 2; bulletY = this.y - BULLET_SIZE; break;
                     case 'down': bulletX = center_x - BULLET_SIZE / 2; bulletY = this.y + this.height; break;
@@ -872,12 +708,14 @@ window.addEventListener('load', function () {
                     case 'right': bulletX = this.x + this.width; bulletY = center_y - BULLET_SIZE / 2; break;
                 }
 
-                bullets.push(new Bullet(bulletX + perpX, bulletY + perpY, this.direction, this));
-                bullets.push(new Bullet(bulletX - perpX, bulletY - perpY, this.direction, this));
+                const b1 = bulletPool ? bulletPool.get(bulletX + perpX, bulletY + perpY, this.direction, this) : new Bullet(bulletX + perpX, bulletY + perpY, this.direction, this);
+                const b2 = bulletPool ? bulletPool.get(bulletX - perpX, bulletY - perpY, this.direction, this) : new Bullet(bulletX - perpX, bulletY - perpY, this.direction, this);
+                bullets.push(b1);
+                bullets.push(b2);
 
             } else if (this.weapon === 'laser') {
-                // Laser is fast and pierces? Or just very fast?
-                // Let's make it piercing.
+                const center_x = this.x + this.width / 2;
+                const center_y = this.y + this.height / 2;
                 bulletX = center_x - BULLET_SIZE / 2; bulletY = center_y - BULLET_SIZE / 2;
                 switch (this.direction) {
                     case 'up': bulletY = this.y - BULLET_SIZE; break;
@@ -886,7 +724,8 @@ window.addEventListener('load', function () {
                     case 'right': bulletX = this.x + this.width; break;
                 }
                 // Piercing bullet type
-                bullets.push(new Bullet(bulletX, bulletY, this.direction, this, 'piercing'));
+                const b = bulletPool ? bulletPool.get(bulletX, bulletY, this.direction, this, 'piercing') : new Bullet(bulletX, bulletY, this.direction, this, 'piercing');
+                bullets.push(b);
                 createParticles(bulletX + BULLET_SIZE / 2, bulletY + BULLET_SIZE / 2, 3, 'energy');
             } else {
                 super.executeShoot();
@@ -1978,10 +1817,17 @@ window.addEventListener('load', function () {
     }
 
     class Bullet {
-        constructor(x, y, direction, owner) {
+        constructor(x, y, direction, owner, type = 'normal') {
+            this.reset(x, y, direction, owner, type);
+        }
+        reset(x, y, direction, owner, type = 'normal') {
             this.x = x; this.y = y; this.width = BULLET_SIZE; this.height = BULLET_SIZE;
             this.direction = direction; this.speed = BULLET_SPEED; this.owner = owner;
+            this.type = type;
+            this.markedForDeletion = false;
+            this.hitList = []; // Initialize hitList for piercing bullets
         }
+
         update(timeScale = 1) {
             switch (this.direction) {
                 case 'up': this.y -= this.speed * timeScale; break;
@@ -2214,6 +2060,9 @@ window.addEventListener('load', function () {
     // --- 粒子系統和視覺效果 ---
     class Particle {
         constructor(x, y, type = 'spark') {
+            this.reset(x, y, type);
+        }
+        reset(x, y, type = 'spark') {
             this.x = x;
             this.y = y;
             this.vx = (Math.random() - 0.5) * 8;
@@ -2224,6 +2073,7 @@ window.addEventListener('load', function () {
             this.type = type;
             this.color = COLORS.PARTICLE[type] || COLORS.PARTICLE.spark;
         }
+
 
         update() {
             this.x += this.vx;
@@ -2248,7 +2098,8 @@ window.addEventListener('load', function () {
     function createParticles(x, y, count = 8, type = 'spark') {
         if (!VISUAL_EFFECTS.PARTICLE_EFFECTS) return;
         for (let i = 0; i < count; i++) {
-            particles.push(new Particle(x, y, type));
+            const p = particlePool ? particlePool.get(x, y, type) : new Particle(x, y, type);
+            particles.push(p);
         }
     }
 
@@ -2761,7 +2612,8 @@ window.addEventListener('load', function () {
                 case 'left': bx -= this.width / 2 + BULLET_SIZE; break;
                 case 'right': bx += this.width / 2; break;
             }
-            bullets.push(new Bullet(bx, by, this.direction, this));
+            const b = bulletPool ? bulletPool.get(bx, by, this.direction, this) : new Bullet(bx, by, this.direction, this);
+            bullets.push(b);
             this.shootCooldown = 40;
             playSound('SHOOT');
         }
@@ -2774,92 +2626,108 @@ window.addEventListener('load', function () {
 
             if (bullet.x < 0 || bullet.x > canvas.width || bullet.y < 0 || bullet.y > canvas.height) {
                 bulletRemoved = true;
-            } else if (base && !base.destroyed && checkCollision(bullet, base)) {
-                base.destroyed = true; gameState = 'GAME_OVER';
-                createExplosion(base.x + TILE_SIZE / 2, base.y + TILE_SIZE / 2, TILE_SIZE * 2, 'tank');
-                bulletRemoved = true;
-                stopBackgroundMusic();
-                playSound('GAME_OVER');
             } else {
-                // Check Walls
-                // Note: Piercing bullets can destroy steel? No, let's say they penetrate tanks but stop at steel/walls for balance, 
-                // OR penetrate brick but stop at steel. 
-                // Let's make "Piercing" penetrate TANKS only for now, and standard wall logic.
-                // Actually, let's allow piercing bullets to destroy multiple bricks?
-                // For simplicity: Bullet stops at wall.
-                for (let j = walls.length - 1; j >= 0; j--) {
-                    const wall = walls[j];
-                    if (checkCollision(bullet, wall)) {
-                        if (wall.type === 'brick' || (wall.type === 'steel' && bullet.damage >= 2)) { // Future: heavy bullets
-                            walls.splice(j, 1);
-                            Enemy.syncCollisionGrid(); // 更新尋路網格
-                            if (bullet.owner instanceof Player) addScore(POINTS.BRICK_DESTROY);
-                            playSound('EXPLOSION');
-                        } else if (wall.type === 'steel') {
-                            playSound('MetalHit'); // We don't have this sound yet, use EXPLOSION
-                        }
-                        bulletRemoved = true;
-                        break; // Stop checking walls
-                    }
+                // Optimization: Use Spatial Grid if available
+                let candidates;
+                if (spatialGrid) {
+                    candidates = spatialGrid.retrieve(bullet);
+                } else {
+                    candidates = [];
+                    if (base) candidates.push(base);
+                    candidates.push(...walls);
+                    candidates.push(...enemies);
+                    if (player) candidates.push(player);
                 }
 
-                if (!bulletRemoved && bullet.owner instanceof Player) {
-                    for (let j = enemies.length - 1; j >= 0; j--) {
-                        const enemy = enemies[j];
-                        // If piercing, check if already hit this enemy
-                        if (bullet.type === 'piercing' && bullet.hitList.includes(enemy)) continue;
+                const hitBase = candidates.find(c => c instanceof Base);
+                const hitWalls = candidates.filter(c => c instanceof Wall);
+                const hitEnemies = candidates.filter(c => c instanceof Enemy);
+                const hitPlayer = candidates.find(c => c instanceof Player);
 
-                        if (checkCollision(bullet, enemy)) {
-                            createExplosion(enemy.x + TANK_SIZE / 2, enemy.y + TANK_SIZE / 2, TANK_SIZE, 'tank');
-                            enemy.takeDamage(bullet.damage);
-
-                            if (bullet.type === 'piercing') {
-                                bullet.hitList.push(enemy); // Mark as hit
-                                // Don't remove bullet!
-                            } else {
-                                bulletRemoved = true;
+                if (hitBase && !hitBase.destroyed && checkCollision(bullet, hitBase)) {
+                    hitBase.destroyed = true; gameState = 'GAME_OVER';
+                    createExplosion(hitBase.x + TILE_SIZE / 2, hitBase.y + TILE_SIZE / 2, TILE_SIZE * 2, 'tank');
+                    bulletRemoved = true;
+                    stopBackgroundMusic();
+                    playSound('GAME_OVER');
+                } else {
+                    // Check Walls
+                    for (const wall of hitWalls) {
+                        if (checkCollision(bullet, wall)) {
+                            if (wall.type === 'brick' || (wall.type === 'steel' && bullet.damage >= 2)) { 
+                                const index = walls.indexOf(wall);
+                                if (index > -1) {
+                                    walls.splice(index, 1);
+                                    Enemy.syncCollisionGrid(); 
+                                    if (bullet.owner instanceof Player) addScore(POINTS.BRICK_DESTROY);
+                                    playSound('EXPLOSION');
+                                }
+                            } else if (wall.type === 'steel') {
+                                playSound('MetalHit'); 
                             }
-
-                            if (enemy.health <= 0) {
-                                let points = (enemy.maxHealth === 1) ? POINTS.ENEMY_NORMAL : POINTS.ENEMY_TOUGH;
-                                if (enemy instanceof BossTank) points = 5000; // Boss points
-                                addScore(points);
-                                spawnPowerUp(enemy.x, enemy.y);
-                                playSound('ENEMY_DESTROY');
-                                enemies.splice(j, 1);
-                            } else {
-                                playSound('EXPLOSION');
-                            }
-
-                            if (bulletRemoved) break; // Stop checking enemies if bullet gone
+                            bulletRemoved = true;
+                            break; 
                         }
                     }
-                } else if (!bulletRemoved && bullet.owner instanceof Enemy) {
-                    if (player && checkCollision(bullet, player) && !player.invincible && !player.starInvincible) {
-                        if (player.armor) {
-                            player.armor = false;
-                            player.armorTimer = 0;
-                            createExplosion(player.x + TANK_SIZE / 2, player.y + TANK_SIZE / 2, TANK_SIZE / 2, 'armor');
-                            bulletRemoved = true;
-                            playSound('EXPLOSION');
-                        } else {
-                            createExplosion(player.x + TANK_SIZE / 2, player.y + TANK_SIZE / 2, TANK_SIZE, 'tank');
-                            playerLives--;
-                            if (playerLives > 0) {
-                                player.respawn();
-                                playSound('PLAYER_HIT');
-                            } else {
-                                gameState = 'GAME_OVER';
-                                stopBackgroundMusic();
-                                playSound('GAME_OVER');
+
+                    if (!bulletRemoved && bullet.owner instanceof Player) {
+                        for (const enemy of hitEnemies) {
+                            if (bullet.type === 'piercing' && bullet.hitList.includes(enemy)) continue;
+
+                            if (checkCollision(bullet, enemy)) {
+                                createExplosion(enemy.x + TANK_SIZE / 2, enemy.y + TANK_SIZE / 2, TANK_SIZE, 'tank');
+                                enemy.takeDamage(bullet.damage);
+
+                                if (bullet.type === 'piercing') {
+                                    if (!bullet.hitList) bullet.hitList = [];
+                                    bullet.hitList.push(enemy); 
+                                } else {
+                                    bulletRemoved = true;
+                                }
+
+                                if (enemy.health <= 0) {
+                                    let points = (enemy.maxHealth === 1) ? POINTS.ENEMY_NORMAL : POINTS.ENEMY_TOUGH;
+                                    if (enemy instanceof BossTank) points = 5000; 
+                                    addScore(points);
+                                    spawnPowerUp(enemy.x, enemy.y);
+                                    playSound('ENEMY_DESTROY');
+                                    const idx = enemies.indexOf(enemy);
+                                    if (idx > -1) enemies.splice(idx, 1);
+                                } else {
+                                    playSound('EXPLOSION');
+                                }
+
+                                if (bulletRemoved) break; 
                             }
-                            bulletRemoved = true;
+                        }
+                    } else if (!bulletRemoved && bullet.owner instanceof Enemy) {
+                        if (hitPlayer && checkCollision(bullet, hitPlayer) && !player.invincible && !player.starInvincible) {
+                            if (player.armor) {
+                                player.armor = false;
+                                player.armorTimer = 0;
+                                createExplosion(player.x + TANK_SIZE / 2, player.y + TANK_SIZE / 2, TANK_SIZE / 2, 'armor');
+                                bulletRemoved = true;
+                                playSound('EXPLOSION');
+                            } else {
+                                createExplosion(player.x + TANK_SIZE / 2, player.y + TANK_SIZE / 2, TANK_SIZE, 'tank');
+                                playerLives--;
+                                if (playerLives > 0) {
+                                    player.respawn();
+                                    playSound('PLAYER_HIT');
+                                } else {
+                                    gameState = 'GAME_OVER';
+                                    stopBackgroundMusic();
+                                    playSound('GAME_OVER');
+                                }
+                                bulletRemoved = true;
+                            }
                         }
                     }
                 }
             }
 
             if (bulletRemoved) {
+                if (bulletPool) bulletPool.release(bullets[i]);
                 bullets.splice(i, 1);
             }
         }
@@ -2888,15 +2756,27 @@ window.addEventListener('load', function () {
         enemies.forEach(e => e.update(timeScale));
         bullets.forEach(b => b.update(timeScale));
         powerUps.forEach(p => p.update(timeScale));
-        explosions.forEach((e, index) => {
-            e.update(timeScale);
-            if (e.life <= 0) explosions.splice(index, 1);
-        });
-        particles.forEach((p, index) => {
-            p.update(timeScale);
-            if (p.life <= 0) particles.splice(index, 1);
-        });
+        
+        for (let i = explosions.length - 1; i >= 0; i--) {
+            explosions[i].update(timeScale);
+            if (explosions[i].life <= 0) explosions.splice(i, 1);
+        }
 
+        for (let i = particles.length - 1; i >= 0; i--) {
+            particles[i].update(timeScale);
+            if (particles[i].life <= 0) {
+                if (particlePool) particlePool.release(particles[i]);
+                particles.splice(i, 1);
+            }
+        }
+
+        if (spatialGrid) {
+            spatialGrid.clear();
+            if (base && !base.destroyed) spatialGrid.insert(base);
+            walls.forEach(w => spatialGrid.insert(w));
+            enemies.forEach(e => spatialGrid.insert(e));
+            if (player) spatialGrid.insert(player);
+        }
         handleCollisions(); // Collision handling is instantaneous, usually fine without timeScale unless complex physics
 
         // 全域防嵌入檢查（每30幀執行一次 -> Use generic counter or time）
